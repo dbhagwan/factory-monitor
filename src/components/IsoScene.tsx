@@ -25,6 +25,8 @@ const SLOT = 4.8;
 interface Props {
   zone: ZoneModel;
   selectedMachine?: string;
+  /** Machine to pick out (e.g. while hovering its alert in the rail). */
+  highlightMachine?: string;
   offline: boolean;
   onSelect: (machineId: string, channel?: Channel) => void;
 }
@@ -40,7 +42,7 @@ function partKey(p: Part) {
   return layer * 1000 + sum;
 }
 
-export function IsoScene({ zone, selectedMachine, offline, onSelect }: Props) {
+export function IsoScene({ zone, selectedMachine, highlightMachine, offline, onSelect }: Props) {
   const reduce = useReducedMotion();
   const [hover, setHover] = useState<HoverInfo | null>(null);
 
@@ -87,6 +89,8 @@ export function IsoScene({ zone, selectedMachine, offline, onSelect }: Props) {
           const neutral = m.state.tone === "healthy" || m.state.tone === "idle" || m.state.tone === "maintenance";
           const tint = neutral ? 0 : m.state.hollow ? 0.18 : 0.38;
           const selected = selectedMachine === m.machine.id;
+          const isHighlighted = highlightMachine === m.machine.id;
+          const dimmed = !!highlightMachine && !isHighlighted;
           const pulse = m.state.tone === "critical" && !m.state.hollow && !reduce;
           const margin = 0.35;
           const pad = poly([
@@ -112,8 +116,12 @@ export function IsoScene({ zone, selectedMachine, offline, onSelect }: Props) {
               onMouseEnter={() => setHover({ m })}
               onMouseLeave={() => setHover(null)}
             >
+             <g opacity={dimmed ? 0.35 : 1} style={{ transition: "opacity 150ms" }}>
               {/* state pad */}
-              <polygon points={pad} fill={`${hex}${neutral ? "14" : "26"}`} stroke={selected ? "#5B9CFF" : hex} strokeWidth={selected ? 1.5 : 1} strokeOpacity={neutral && !selected ? 0.5 : 1} />
+              {isHighlighted && (
+                <polygon points={pad} fill="none" stroke="#5B9CFF" strokeOpacity={0.35} strokeWidth={8} strokeLinejoin="round" data-highlight="machine" />
+              )}
+              <polygon points={pad} fill={`${hex}${neutral ? "14" : "26"}`} stroke={selected || isHighlighted ? "#5B9CFF" : hex} strokeWidth={selected || isHighlighted ? 1.5 : 1} strokeOpacity={neutral && !selected && !isHighlighted ? 0.5 : 1} />
               {pulse && (
                 <motion.polygon points={pad} fill="none" stroke={hex} strokeWidth={2} animate={{ opacity: [0.9, 0.15, 0.9] }} transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }} />
               )}
@@ -190,6 +198,7 @@ export function IsoScene({ zone, selectedMachine, offline, onSelect }: Props) {
                 {m.state.open.length > 0 ? `${m.state.open.length} open` : m.state.hollow ? `In progress · ${ownerOf(m)}` : STATUS_LABEL[m.machine.status]}
               </text>
               {offline && <OfflineBadge x={top.x - 9} y={top.y - 30} size={18} />}
+             </g>
             </motion.g>
           );
         })}

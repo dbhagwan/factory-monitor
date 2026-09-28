@@ -15,7 +15,7 @@ import {
 } from "@chakra-ui/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, BarChart3, RefreshCw, UserRound, WifiOff } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertList } from "../components/AlertList";
 import { FloorMap } from "../components/FloorMap";
@@ -48,6 +48,7 @@ export function Floor() {
   const { offline, factoryLinkDown } = useConnectivity();
   const operator = useOperator();
 
+  const [hoveredAlert, setHoveredAlert] = useState<NormalizedAlert | null>(null);
   const [pendingZone, setPendingZone] = useState<{ zoneId: string; machine?: string; channel?: Channel } | null>(null);
   const [filters, setFilters] = useState<AlertFilters>({ severity: "all", zone: "all", includeAcknowledged: true });
   const [showInsights, setShowInsights] = useState<boolean>(() => {
@@ -57,6 +58,13 @@ export function Floor() {
       return false;
     }
   });
+  const [insightsExpanded, setInsightsExpanded] = useState(false);
+  useEffect(() => {
+    if (!insightsExpanded) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setInsightsExpanded(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [insightsExpanded]);
   const toggleInsights = () => {
     setShowInsights((v) => {
       try {
@@ -175,6 +183,19 @@ export function Floor() {
       </Flex>
 
       <Grid flex={1} minH={0} p={{ base: 4, md: 5 }} gap={5} templateColumns={{ base: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 400px" }} templateRows={{ base: "auto auto", lg: "minmax(0, 1fr)" }}>
+        {insightsExpanded ? (
+          <Box gridColumn="1 / -1" minH={{ base: "600px", lg: 0 }} display="flex" flexDirection="column">
+            <Insights
+              alerts={zoneId ? alerts.filter((a) => a.zoneId === zoneId) : alerts}
+              zones={zoneId ? zones.filter((z) => z.zone.id === zoneId) : zones}
+              scopeLabel={zone ? zone.zone.name : "all zones"}
+              compareZones={!zoneId}
+              expanded
+              onToggleExpand={() => setInsightsExpanded(false)}
+            />
+          </Box>
+        ) : (
+        <>
         {/* stage */}
         <Flex direction="column" minH={0} minW={0}>
           <Flex align="baseline" justify="space-between" mb={3} h="28px" flexShrink={0} minW={0} overflow="hidden" whiteSpace="nowrap">
@@ -204,7 +225,7 @@ export function Floor() {
             <AnimatePresence mode="wait" initial={false}>
               {zoneId && zone ? (
                 <motion.div key="iso" style={{ position: "absolute", inset: 0 }} initial={{ opacity: 0, scale: 1.06 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}>
-                  <IsoScene zone={zone} selectedMachine={machineId} offline={offline} onSelect={selectMachine} />
+                  <IsoScene zone={zone} selectedMachine={machineId} offline={offline} onSelect={selectMachine} highlightMachine={hoveredAlert?.machineId} />
                 </motion.div>
               ) : (
                 <motion.div key="map" style={{ position: "absolute", inset: 0 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
@@ -214,6 +235,7 @@ export function Floor() {
                     offline={offline}
                     zoomTo={pendingZone?.zoneId ?? null}
                     returnFrom={returnFrom}
+                    highlightMachine={hoveredAlert?.machineId}
                     onZoomed={finishZoom}
                     onZoneClick={(id) => goToZone(id)}
                     onMachineClick={(z, m) => goToZone(z, m)}
@@ -238,6 +260,7 @@ export function Floor() {
                     zones={zoneId ? zones.filter((z) => z.zone.id === zoneId) : zones}
                     scopeLabel={zone ? zone.zone.name : "all zones"}
                     compareZones={!zoneId}
+                    onToggleExpand={() => setInsightsExpanded(true)}
                   />
                 </Box>
               </motion.div>
@@ -278,6 +301,7 @@ export function Floor() {
               isLoading={isLoading}
               compact
               onLocate={locate}
+              onHover={setHoveredAlert}
               emptyTitle={
                 filters.severity !== "all"
                   ? "No problems match"
@@ -295,6 +319,8 @@ export function Floor() {
             />
           </Box>
         </Flex>
+        </>
+        )}
       </Grid>
 
       <MachineDetail model={selected} channel={channel} onChannelChange={(c) => machineId && selectMachine(machineId, c)} onClose={() => setParams(new URLSearchParams())} />

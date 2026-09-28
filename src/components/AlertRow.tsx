@@ -11,11 +11,13 @@ interface Props {
   alert: NormalizedAlert;
   compact?: boolean;
   onLocate?: (alert: NormalizedAlert) => void;
+  /** Fired with the alert on mouse enter and null on leave, to highlight its machine. */
+  onHover?: (alert: NormalizedAlert | null) => void;
 }
 
 const CONFIRM_WINDOW_MS = 4000;
 
-export function AlertRow({ alert, compact, onLocate }: Props) {
+export function AlertRow({ alert, compact, onLocate, onHover }: Props) {
   const ack = useAcknowledgeAlert();
   const toast = useToast();
   const hex = toneHex(alert.severity);
@@ -58,8 +60,12 @@ export function AlertRow({ alert, compact, onLocate }: Props) {
       borderRadius="md"
       overflow="hidden"
       opacity={alert.acknowledged ? 0.6 : 1}
-      transition="opacity 200ms"
+      transition="opacity 200ms, background 150ms"
       role="group"
+      data-alert-row={alert.id}
+      onMouseEnter={() => onHover?.(alert)}
+      onMouseLeave={() => onHover?.(null)}
+      _hover={{ bg: "carbon.800" }}
     >
       <Box
         w="4px"

@@ -58,6 +58,8 @@ interface Props {
   zoomTo?: string | null;
   /** Zone we are returning from; the map starts zoomed there and pulls out. */
   returnFrom?: string | null;
+  /** Machine to pick out (e.g. while hovering its alert in the rail). */
+  highlightMachine?: string;
   onZoomed?: () => void;
   onZoneClick: (zoneId: string) => void;
   onMachineClick: (zoneId: string, machineId: string) => void;
@@ -69,6 +71,7 @@ export function FloorMap({
   offline,
   zoomTo,
   returnFrom,
+  highlightMachine,
   onZoomed,
   onZoneClick,
   onMachineClick,
@@ -186,6 +189,7 @@ export function FloorMap({
           const plan = ZONES[z.zone.id];
           if (!plan) return null;
           const healthHex = toneHex(HEALTH_TONE[z.health]);
+          const zoneHasHighlight = !!highlightMachine && z.machines.some((m) => m.machine.id === highlightMachine);
           return (
             <motion.g
               key={z.zone.id}
@@ -200,10 +204,11 @@ export function FloorMap({
               <polygon
                 points={plan.polygon.map((p) => p.join(",")).join(" ")}
                 fill={ROOM}
-                stroke={healthHex}
-                strokeOpacity={z.health === "healthy" ? 0.4 : 0.95}
-                strokeWidth={z.health === "healthy" ? 1.5 : 2}
+                stroke={zoneHasHighlight ? "#5B9CFF" : healthHex}
+                strokeOpacity={zoneHasHighlight ? 1 : z.health === "healthy" ? 0.4 : 0.95}
+                strokeWidth={zoneHasHighlight ? 2 : z.health === "healthy" ? 1.5 : 2}
                 strokeLinejoin="round"
+                style={{ transition: "stroke 150ms" }}
               />
               <text x={plan.label[0]} y={plan.label[1]} fill={INK} fontSize={16} fontWeight={500}>
                 {z.zone.name}
@@ -233,6 +238,8 @@ export function FloorMap({
                 const thin = s.h < 50;
                 const narrow = s.w < 90;
                 const t = m.machine.telemetry;
+                const isHighlighted = highlightMachine === m.machine.id;
+                const dimmed = !!highlightMachine && !isHighlighted;
                 const statusText =
                   m.state.open.length > 0
                     ? `${m.state.open.length} open`
@@ -252,6 +259,10 @@ export function FloorMap({
                       onMachineClick(z.zone.id, m.machine.id);
                     }}
                   >
+                   <g opacity={dimmed ? 0.4 : 1} style={{ transition: "opacity 150ms" }}>
+                    {isHighlighted && (
+                      <rect x={s.x - 5} y={s.y - 5} width={s.w + 10} height={s.h + 10} rx={8} fill="none" stroke="#5B9CFF" strokeOpacity={0.35} strokeWidth={8} data-highlight="machine" />
+                    )}
                     <rect
                       x={s.x}
                       y={s.y}
@@ -259,9 +270,9 @@ export function FloorMap({
                       height={s.h}
                       rx={5}
                       fill={m.state.hollow ? `${hex}22` : isIdle ? "url(#hatch)" : `${hex}33`}
-                      stroke={hex}
-                      strokeWidth={m.state.hollow ? 1.5 : 1}
-                      strokeDasharray={isIdle ? "4 3" : undefined}
+                      stroke={isHighlighted ? "#5B9CFF" : hex}
+                      strokeWidth={isHighlighted ? 2 : m.state.hollow ? 1.5 : 1}
+                      strokeDasharray={isIdle && !isHighlighted ? "4 3" : undefined}
                     />
                     {pulse && (
                       <motion.rect
@@ -312,6 +323,7 @@ export function FloorMap({
                       </>
                     )}
                     {offline && <OfflineBadge x={s.x + s.w - 24} y={s.y - 8} size={14} />}
+                   </g>
                   </motion.g>
                 );
               })}
