@@ -19,6 +19,21 @@ import {
 } from "../lib/floorPlan";
 import { HEALTH_LABEL, HEALTH_TONE, STATUS_LABEL, collapseDuplicates, toneHex } from "../lib/health";
 import { OfflineBadge } from "./OfflineBadge";
+import { exposedSignals, type Signal } from "../lib/signals";
+
+/** Readouts as coloured tspans: alerting subsystems in their severity colour. */
+function Readouts({ signals, muted }: { signals: Signal[]; muted: string }) {
+  return (
+    <>
+      {signals.map((sig, i) => (
+        <tspan key={sig.channel} fill={sig.severity ? toneHex(sig.severity) : muted} fillOpacity={sig.hollow ? 0.7 : 1}>
+          {i > 0 ? " · " : ""}
+          {sig.value}
+        </tspan>
+      ))}
+    </>
+  );
+}
 
 const INK = "#F4F6F7";
 
@@ -237,7 +252,7 @@ export function FloorMap({
                 const pulse = m.state.tone === "critical" && !m.state.hollow && !reduce;
                 const thin = s.h < 50;
                 const narrow = s.w < 90;
-                const t = m.machine.telemetry;
+                const signals = exposedSignals(m, narrow ? 1 : thin ? 2 : 3);
                 const isHighlighted = highlightMachine === m.machine.id;
                 const dimmed = !!highlightMachine && !isHighlighted;
                 const statusText =
@@ -289,23 +304,36 @@ export function FloorMap({
                       />
                     )}
                     {narrow ? (
-                      <text
-                        transform={`translate(${s.x + s.w / 2 + 4}, ${s.y + s.h / 2}) rotate(-90)`}
-                        fill={INK}
-                        fontSize={11}
-                        fontWeight={500}
-                        textAnchor="middle"
-                      >
-                        {m.machine.name}
-                      </text>
+                      <>
+                        <text
+                          transform={`translate(${s.x + s.w / 2 - 4}, ${s.y + s.h / 2}) rotate(-90)`}
+                          fill={INK}
+                          fontSize={11}
+                          fontWeight={500}
+                          textAnchor="middle"
+                        >
+                          {m.machine.name}
+                        </text>
+                        <text
+                          transform={`translate(${s.x + s.w / 2 + 10}, ${s.y + s.h / 2}) rotate(-90)`}
+                          fontSize={10}
+                          textAnchor="middle"
+                        >
+                          <tspan fill={hex}>{statusText}</tspan>
+                          {signals.length > 0 && <tspan fill={MUTED}> · </tspan>}
+                          <Readouts signals={signals} muted={MUTED} />
+                        </text>
+                      </>
                     ) : thin ? (
                       <>
                         <rect x={s.x + 10} y={s.y + s.h / 2 - 4} width={8} height={8} rx={2} fill={hex} />
                         <text x={s.x + 24} y={s.y + s.h / 2 + 4} fill={INK} fontSize={11} fontWeight={500}>
                           {m.machine.name}
                         </text>
-                        <text x={s.x + s.w - 10} y={s.y + s.h / 2 + 4} fill={hex} fontSize={10} textAnchor="end">
-                          {statusText} · {t.throughput} u/h
+                        <text x={s.x + s.w - 10} y={s.y + s.h / 2 + 4} fontSize={10} textAnchor="end">
+                          <tspan fill={hex}>{statusText}</tspan>
+                          {signals.length > 0 && <tspan fill={MUTED}> · </tspan>}
+                          <Readouts signals={signals} muted={MUTED} />
                         </text>
                       </>
                     ) : (
@@ -314,8 +342,8 @@ export function FloorMap({
                         <text x={s.x + 24} y={s.y + 20} fill={INK} fontSize={12} fontWeight={500}>
                           {m.machine.name}
                         </text>
-                        <text x={s.x + 10} y={s.y + 38} fill={MUTED} fontSize={10}>
-                          {t.temperature.toFixed(0)}°C · {t.throughput} u/h · {t.powerDraw.toFixed(1)} kW
+                        <text x={s.x + 10} y={s.y + 38} fontSize={10}>
+                          <Readouts signals={signals} muted={MUTED} />
                         </text>
                         <text x={s.x + 10} y={s.y + s.h - 10} fill={hex} fontSize={10}>
                           {statusText}
@@ -339,7 +367,12 @@ export function FloorMap({
             <Text fontWeight={500}>{hover.machine.name}</Text>
           </HStack>
           <Text color="text.muted" fontSize="xs">
-            {STATUS_LABEL[hover.machine.status]} · {hover.machine.telemetry.temperature.toFixed(0)}°C · {hover.machine.telemetry.throughput} units/h
+            {STATUS_LABEL[hover.machine.status]}
+            {exposedSignals(hover, 4, 2).map((sig) => (
+              <Text as="span" key={sig.channel} color={sig.severity ? toneHex(sig.severity) : undefined}>
+                {" · "}{sig.label} {sig.value}
+              </Text>
+            ))}
           </Text>
           {collapseDuplicates(hover.state.open).slice(0, 3).map(({ alert: a, count }) => (
             <Text key={a.id} fontSize="xs" color={toneHex(a.severity)} mt={1} noOfLines={1}>
