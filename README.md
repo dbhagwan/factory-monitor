@@ -118,11 +118,11 @@ If the factory link goes down or the feed goes quiet for 30 seconds, every machi
 
 | Mark | Meaning |
 |---|---|
-| <span style="color:#E5484D">■</span> Red | Critical alert, or a machine in an error state |
-| <span style="color:#F5B301">■</span> Amber | Warning |
-| Gray | Info alert, or an idle / maintenance machine (hatched) |
-| Green | Healthy, running |
-| Blue | Interaction only: selection, highlight, links. Never an alert state |
+| 🟥 Red | Critical alert, or a machine in an error state |
+| 🟨 Amber | Warning |
+| ⬜ Gray | Info alert, or an idle / maintenance machine (hatched) |
+| 🟩 Green | Healthy, running |
+| 🟦 Blue | Interaction only: selection, highlight, links. Never an alert state |
 | Hollow outline | Every alert on the machine is in progress |
 | <img src="docs/screenshots/offline-header.png" height="28" alt=""> | No-link icon: factory link down or feed quiet. Same badge floats over each machine |
 | Bar-chart icon | Insights band toggle |
