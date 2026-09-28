@@ -106,3 +106,22 @@ export const MACHINE_TYPE_LABEL: Record<Machine["type"], string> = {
   welder: "Welder",
   spray_booth: "Spray booth",
 };
+
+/**
+ * Collapse repeated alerts (same machine, severity and message) into one
+ * representative with a count. Used for hover summaries; detail views show
+ * every occurrence.
+ */
+export function collapseDuplicates<T extends Alert>(alerts: T[]): Array<{ alert: T; count: number }> {
+  const groups = new Map<string, { alert: T; count: number }>();
+  for (const a of alerts) {
+    const key = `${a.machineId}|${a.severity}|${a.message}`;
+    const g = groups.get(key);
+    if (!g) groups.set(key, { alert: a, count: 1 });
+    else {
+      g.count += 1;
+      if (Date.parse(a.timestamp) > Date.parse(g.alert.timestamp)) g.alert = a;
+    }
+  }
+  return [...groups.values()];
+}

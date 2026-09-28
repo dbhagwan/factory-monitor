@@ -13,11 +13,13 @@ interface Props {
   onLocate?: (alert: NormalizedAlert) => void;
   /** Fired with the alert on mouse enter and null on leave, to highlight its machine. */
   onHover?: (alert: NormalizedAlert | null) => void;
+  /** Show the clock time as well as the relative time (detail views). */
+  exactTime?: boolean;
 }
 
 const CONFIRM_WINDOW_MS = 4000;
 
-export function AlertRow({ alert, compact, onLocate, onHover }: Props) {
+export function AlertRow({ alert, compact, onLocate, onHover, exactTime }: Props) {
   const ack = useAcknowledgeAlert();
   const toast = useToast();
   const hex = toneHex(alert.severity);
@@ -100,6 +102,9 @@ export function AlertRow({ alert, compact, onLocate, onHover }: Props) {
             </Text>
             <Text>·</Text>
             <Text title={alert.timestampValid ? new Date(alert.timestamp).toLocaleString() : undefined}>
+              {exactTime && alert.timestampValid
+                ? `${new Date(alert.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })} · `
+                : ""}
               {relativeTime(alert.timestamp, alert.timestampValid)}
             </Text>
           </HStack>

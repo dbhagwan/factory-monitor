@@ -9,11 +9,12 @@ interface Props {
   compact?: boolean;
   onLocate?: (alert: NormalizedAlert) => void;
   onHover?: (alert: NormalizedAlert | null) => void;
+  exactTime?: boolean;
   emptyTitle?: string;
   emptyBody?: string;
 }
 
-export function AlertList({ alerts, isLoading, compact, onLocate, onHover, emptyTitle, emptyBody }: Props) {
+export function AlertList({ alerts, isLoading, compact, onLocate, onHover, exactTime, emptyTitle, emptyBody }: Props) {
   if (isLoading) {
     return (
       <Stack spacing={2}>
@@ -34,7 +35,7 @@ export function AlertList({ alerts, isLoading, compact, onLocate, onHover, empty
   return (
     <Stack spacing={2}>
       {alerts.map((a) => (
-        <AlertRow key={a.id} alert={a} compact={compact} onLocate={onLocate} onHover={onHover} />
+        <AlertRow key={a.id} alert={a} compact={compact} onLocate={onLocate} onHover={onHover} exactTime={exactTime} />
       ))}
     </Stack>
   );

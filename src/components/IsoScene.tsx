@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useMemo, useState } from "react";
 import type { MachineModel, ZoneModel } from "../hooks/useFloor";
 import { CHANNELS, CHANNEL_META, type Channel } from "../lib/channels";
-import { STATUS_LABEL, toneHex, worstSeverity } from "../lib/health";
+import { STATUS_LABEL, collapseDuplicates, toneHex, worstSeverity } from "../lib/health";
 import { circleAt, cuboidFaces, cylinderParts, mix, poly, project, TILE, shade } from "../lib/iso";
 import { MODELS, PAINT, type Part } from "../lib/machineModels";
 import { OfflineBadge } from "./OfflineBadge";
@@ -221,19 +221,18 @@ export function IsoScene({ zone, selectedMachine, highlightMachine, offline, onS
           ) : (
             <Text fontSize="xs" color="text.muted">{STATUS_LABEL[hover.m.machine.status]} · click for detail</Text>
           )}
-          {hover.m.state.open
-            .filter((a) => !hover.channel || a.channel === hover.channel)
-            .slice(0, 2)
-            .map((a) => (
-              <Text key={a.id} fontSize="xs" color={toneHex(a.severity)} mt={1} noOfLines={1}>{a.message}</Text>
-            ))}
-          {hover.m.state.acked
-            .filter((a) => !hover.channel || a.channel === hover.channel)
-            .map((a) => (
-              <Text key={a.id} fontSize="xs" color="text.muted" mt={1} noOfLines={1}>
-                In progress · {a.acknowledgedBy ?? "unassigned"} · {a.message}
+          {collapseDuplicates(hover.m.state.open.filter((a) => !hover.channel || a.channel === hover.channel))
+            .slice(0, 3)
+            .map(({ alert: a, count }) => (
+              <Text key={a.id} fontSize="xs" color={toneHex(a.severity)} mt={1} noOfLines={1}>
+                {a.message}{count > 1 ? ` ×${count}` : ""}
               </Text>
             ))}
+          {collapseDuplicates(hover.m.state.acked.filter((a) => !hover.channel || a.channel === hover.channel)).map(({ alert: a, count }) => (
+            <Text key={a.id} fontSize="xs" color="text.muted" mt={1} noOfLines={1}>
+              In progress · {a.acknowledgedBy ?? "unassigned"} · {a.message}{count > 1 ? ` ×${count}` : ""}
+            </Text>
+          ))}
         </Box>
       )}
     </Box>

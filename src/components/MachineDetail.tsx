@@ -159,7 +159,7 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                 </HStack>
                 <Box h="180px" ref={chartRef} sx={{ overscrollBehaviorX: "contain", touchAction: "pan-y" }} cursor={following ? "default" : "ew-resize"}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={visible} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+                    <LineChart data={visible} margin={{ top: 8, right: 8, bottom: 0, left: -6 }}>
                       <XAxis
                         dataKey="t"
                         type="number"
@@ -175,7 +175,8 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                         stroke="#3A424B"
                         tick={{ fill: "#82888F", fontSize: 11 }}
                         domain={["auto", "auto"]}
-                        width={48}
+                        tickFormatter={(v) => Number(v).toFixed(1)}
+                        width={52}
                       />
                       <Tooltip
                         contentStyle={{ background: "#2C333A", border: "none", borderRadius: 6, fontSize: 12 }}
@@ -282,10 +283,16 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
 
               <Heading size="sm" mb={2}>
                 {meta.label} alerts
+                {channelAlerts.length > 0 && (
+                  <Text as="span" fontSize="xs" color="text.muted" fontWeight={400} ml={2}>
+                    {channelAlerts.length} {channelAlerts.length === 1 ? "occurrence" : "occurrences"}, newest first
+                  </Text>
+                )}
               </Heading>
               <AlertList
                 alerts={channelAlerts}
                 compact
+                exactTime
                 emptyTitle={`No alerts on ${meta.label.toLowerCase()}`}
                 emptyBody="Readings on this subsystem are within limits."
               />

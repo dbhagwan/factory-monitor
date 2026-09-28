@@ -17,7 +17,7 @@ import {
   bounds,
   slotFor,
 } from "../lib/floorPlan";
-import { HEALTH_LABEL, HEALTH_TONE, STATUS_LABEL, toneHex } from "../lib/health";
+import { HEALTH_LABEL, HEALTH_TONE, STATUS_LABEL, collapseDuplicates, toneHex } from "../lib/health";
 import { OfflineBadge } from "./OfflineBadge";
 
 const INK = "#F4F6F7";
@@ -341,14 +341,14 @@ export function FloorMap({
           <Text color="text.muted" fontSize="xs">
             {STATUS_LABEL[hover.machine.status]} · {hover.machine.telemetry.temperature.toFixed(0)}°C · {hover.machine.telemetry.throughput} units/h
           </Text>
-          {hover.state.open.slice(0, 2).map((a) => (
+          {collapseDuplicates(hover.state.open).slice(0, 3).map(({ alert: a, count }) => (
             <Text key={a.id} fontSize="xs" color={toneHex(a.severity)} mt={1} noOfLines={1}>
-              {a.message}
+              {a.message}{count > 1 ? ` ×${count}` : ""}
             </Text>
           ))}
-          {hover.state.acked.map((a) => (
+          {collapseDuplicates(hover.state.acked).map(({ alert: a, count }) => (
             <Text key={a.id} fontSize="xs" color="text.muted" mt={1} noOfLines={1}>
-              In progress · {a.acknowledgedBy ?? "unassigned"} · {a.message}
+              In progress · {a.acknowledgedBy ?? "unassigned"} · {a.message}{count > 1 ? ` ×${count}` : ""}
             </Text>
           ))}
         </Box>
