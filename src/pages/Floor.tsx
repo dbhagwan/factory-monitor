@@ -11,6 +11,7 @@ import {
   Input,
   Select,
   Text,
+  Tooltip,
 } from "@chakra-ui/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, BarChart3, RefreshCw, UserRound, WifiOff } from "lucide-react";
@@ -25,7 +26,7 @@ import { selectAlerts, useAlertsFeed, type AlertFilters } from "../hooks/useAler
 import { useConnectivity } from "../hooks/useConnectivity";
 import { useFloor } from "../hooks/useFloor";
 import { CHANNELS, type Channel } from "../lib/channels";
-import { HEALTH_LABEL, HEALTH_TONE, SEVERITY_LABEL, toneHex, type Severity } from "../lib/health";
+import { HEALTH_LABEL, HEALTH_TONE, SEVERITY_LABEL, STATUS_LABEL, toneHex, type Severity } from "../lib/health";
 import type { Range } from "../lib/kpis";
 import type { NormalizedAlert } from "../lib/normalize";
 import { setOperator, useOperator } from "../lib/telemetryStore";
@@ -92,6 +93,7 @@ export function Floor() {
   const open = alerts.filter((a) => !a.acknowledged);
   const machines = zones.flatMap((z) => z.machines);
   const running = machines.filter((m) => m.machine.status === "running").length;
+  const notRunning = machines.filter((m) => m.machine.status !== "running");
   const attention = zones.filter((z) => z.health !== "healthy");
 
   const goToZone = (id: string, machine?: string, c?: Channel) => {
@@ -142,7 +144,33 @@ export function Floor() {
         </HStack>
         {!isLoading && (
           <HStack spacing={{ base: 4, md: 7 }} fontSize="sm" color="text.muted">
-            <Text><Text as="span" color="ink" fontWeight={500}>{running}</Text> of {machines.length} running</Text>
+            <Tooltip
+              hasArrow
+              placement="bottom-start"
+              openDelay={150}
+              label={
+                <Box fontSize="xs" py={1}>
+                  <Text fontWeight={500} mb={1}>Machines reporting a Running status</Text>
+                  <Text color="#C9CED3">Out of every machine on the floor. Idle and in-maintenance machines count as not running even with no alerts.</Text>
+                  {notRunning.length > 0 && (
+                    <Box mt={2} pt={2} borderTop="1px solid" borderColor="carbon.600">
+                      <Text color="#C9CED3" mb={0.5}>Not running:</Text>
+                      {notRunning.map((m) => (
+                        <HStack key={m.machine.id} spacing={1.5}>
+                          <Box w="6px" h="6px" borderRadius="sm" bg={toneHex(m.state.tone)} flexShrink={0} />
+                          <Text>{m.machine.name}</Text>
+                          <Text color="#C9CED3">· {STATUS_LABEL[m.machine.status].toLowerCase()}</Text>
+                        </HStack>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              }
+            >
+              <Text cursor="default" tabIndex={0} borderBottom="1px dotted" borderColor="carbon.600">
+                <Text as="span" color="ink" fontWeight={500}>{running}</Text> of {machines.length} running
+              </Text>
+            </Tooltip>
             <HStack spacing={0}>
               <Text
                 as="button"
