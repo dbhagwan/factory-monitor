@@ -39,16 +39,6 @@ export function AlertRow({ alert, compact, onLocate, onHover, exactTime }: Props
     if (!operator) setOperator(by);
     setConfirming(false);
     ack.mutate({ alertId: alert.id, operator: by }, {
-      onSuccess: (r) => {
-        if (r.localOnly) {
-          toast({
-            title: "Acknowledged locally",
-            description: "This alert arrived live and the server has not stored it yet.",
-            status: "info",
-            duration: 4000,
-          });
-        }
-      },
       onError: () =>
         toast({ title: "Could not acknowledge", status: "error", duration: 4000 }),
     });
