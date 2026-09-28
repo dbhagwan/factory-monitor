@@ -17,7 +17,9 @@ import {
   bounds,
   slotFor,
 } from "../lib/floorPlan";
-import { HEALTH_LABEL, HEALTH_TONE, STATUS_LABEL, collapseDuplicates, toneHex } from "../lib/health";
+import { HEALTH_LABEL, HEALTH_TONE, SEVERITY_LABEL, STATUS_LABEL, collapseDuplicates, toneHex, type Severity } from "../lib/health";
+
+const SEVERITIES: Severity[] = ["critical", "warning", "info"];
 import { OfflineBadge } from "./OfflineBadge";
 import { exposedSignals, type Signal } from "../lib/signals";
 
@@ -94,6 +96,7 @@ export function FloorMap({
   const reduce = useReducedMotion();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<MachineModel | null>(null);
+  const [hoverZone, setHoverZone] = useState<ZoneModel | null>(null);
   const initialView = useMemo(() => (returnFrom ? zoneViewBox(returnFrom) : FULL_VIEW), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Camera: animate the SVG viewBox between the whole plan and one zone.
@@ -232,7 +235,12 @@ export function FloorMap({
                 {z.machines.length} machines · {HEALTH_LABEL[z.health]}
               </text>
 
-              <g transform={`translate(${plan.counter[0]}, ${plan.counter[1]})`}>
+              <g
+                transform={`translate(${plan.counter[0]}, ${plan.counter[1]})`}
+                onMouseEnter={() => setHoverZone(z)}
+                onMouseLeave={() => setHoverZone(null)}
+                style={{ cursor: "help" }}
+              >
                 {z.openAlerts.length === 0 ? (
                   <circle cx={-8} cy={-4} r={5} fill={toneHex("healthy")} />
                 ) : (
@@ -364,6 +372,34 @@ export function FloorMap({
         })}
       </svg>
 
+      {hoverZone && !hover && (
+        <Box position="absolute" top={3} right={3} bg="carbon.700" borderRadius="md" px={3} py={2} fontSize="sm" pointerEvents="none" minW="220px" boxShadow="lg">
+          <Text fontWeight={500}>{hoverZone.zone.name}</Text>
+          <Text fontSize="xs" color="text.muted" mb={1}>
+            {hoverZone.openAlerts.length} active {hoverZone.openAlerts.length === 1 ? "alert" : "alerts"}
+          </Text>
+          {SEVERITIES.map((sev) => {
+            const n = hoverZone.openAlerts.filter((a) => a.severity === sev).length;
+            return (
+              <HStack key={sev} spacing={2} fontSize="xs" justify="space-between">
+                <HStack spacing={1.5}>
+                  <Box w="7px" h="7px" borderRadius="sm" bg={toneHex(sev)} opacity={n ? 1 : 0.35} />
+                  <Text color={n ? "ink" : "text.muted"}>{SEVERITY_LABEL[sev]}</Text>
+                </HStack>
+                <Text fontWeight={500} color={n ? toneHex(sev) : "text.muted"}>{n}</Text>
+              </HStack>
+            );
+          })}
+          {(() => {
+            const inProgress = hoverZone.machines.reduce((acc, m) => acc + m.state.acked.length, 0);
+            return inProgress > 0 ? (
+              <Text fontSize="xs" color="brand.300" mt={1}>
+                {inProgress} in progress
+              </Text>
+            ) : null;
+          })()}
+        </Box>
+      )}
       {hover && (
         <Box position="absolute" top={3} right={3} bg="carbon.700" borderRadius="md" px={3} py={2} fontSize="sm" pointerEvents="none" maxW="280px" boxShadow="lg">
           <HStack spacing={2}>
