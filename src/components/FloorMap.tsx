@@ -304,26 +304,30 @@ export function FloorMap({
                       />
                     )}
                     {narrow ? (
-                      <>
-                        <text
-                          transform={`translate(${s.x + s.w / 2 - 4}, ${s.y + s.h / 2}) rotate(-90)`}
-                          fill={INK}
-                          fontSize={11}
-                          fontWeight={500}
-                          textAnchor="middle"
-                        >
-                          {m.machine.name}
-                        </text>
-                        <text
-                          transform={`translate(${s.x + s.w / 2 + 10}, ${s.y + s.h / 2}) rotate(-90)`}
-                          fontSize={10}
-                          textAnchor="middle"
-                        >
-                          <tspan fill={hex}>{statusText}</tspan>
-                          {signals.length > 0 && <tspan fill={MUTED}> · </tspan>}
-                          <Readouts signals={signals} muted={MUTED} />
-                        </text>
-                      </>
+                      <g clipPath={`inset(0 round 5)`}>
+                        <clipPath id={`clip-${m.machine.id}`}>
+                          <rect x={s.x} y={s.y} width={s.w} height={s.h} rx={5} />
+                        </clipPath>
+                        <g clipPath={`url(#clip-${m.machine.id})`}>
+                          <text
+                            transform={`translate(${s.x + s.w / 2 - 5}, ${s.y + s.h / 2}) rotate(-90)`}
+                            fill={INK}
+                            fontSize={11}
+                            fontWeight={500}
+                            textAnchor="middle"
+                          >
+                            {truncate(m.machine.name, 18)}
+                          </text>
+                          <text
+                            transform={`translate(${s.x + s.w / 2 + 9}, ${s.y + s.h / 2}) rotate(-90)`}
+                            fontSize={10}
+                            textAnchor="middle"
+                            fill={hex}
+                          >
+                            {m.state.open.length > 0 ? `${m.state.open.length} open` : m.state.hollow ? "In progress" : STATUS_LABEL[m.machine.status]}
+                          </text>
+                        </g>
+                      </g>
                     ) : thin ? (
                       <>
                         <rect x={s.x + 10} y={s.y + s.h / 2 - 4} width={8} height={8} rx={2} fill={hex} />
@@ -388,4 +392,8 @@ export function FloorMap({
       )}
     </Box>
   );
+}
+
+function truncate(s: string, n: number) {
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }

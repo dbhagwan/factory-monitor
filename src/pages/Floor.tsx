@@ -230,7 +230,19 @@ export function Floor() {
         {isError && !offline && (
           <Text color={toneHex("critical")} fontSize="sm">Could not reach the factory API.</Text>
         )}
-        <HStack spacing={2} ml={offline || isError ? 4 : "auto"} flexShrink={0} color="text.muted" fontSize="sm">
+        <Button
+          size="sm"
+          variant={showInsights ? "solid" : "ghost"}
+          colorScheme="gray"
+          bg={showInsights ? "carbon.700" : undefined}
+          leftIcon={<BarChart3 size={14} />}
+          onClick={toggleInsights}
+          flexShrink={0}
+          ml={offline || isError ? 4 : "auto"}
+        >
+          Insights
+        </Button>
+        <HStack spacing={2} flexShrink={0} color="text.muted" fontSize="sm">
           <UserRound size={14} />
           <Input
             size="sm"
@@ -265,8 +277,9 @@ export function Floor() {
         <>
         {/* stage */}
         <Flex direction="column" minH={0} minW={0}>
+          {zone && (
           <Flex align="baseline" justify="space-between" mb={3} h="28px" flexShrink={0} minW={0} overflow="hidden" whiteSpace="nowrap">
-            {zone ? (
+            {(
               <HStack spacing={3}>
                 <Button size="sm" variant="ghost" colorScheme="gray" leftIcon={<ArrowLeft size={14} />} onClick={backToFloor} px={2}>
                   Floor
@@ -278,16 +291,9 @@ export function Floor() {
                 </HStack>
                 <Text fontSize="sm" color="text.muted">{zone.machines.length} machines · {zone.openAlerts.length} open</Text>
               </HStack>
-            ) : (
-              <HStack spacing={3}>
-                <Heading size="md">Plant overview</Heading>
-                <Text fontSize="sm" color="text.muted" display={{ base: "none", md: "block" }}>Select a zone to inspect its machines</Text>
-              </HStack>
             )}
-            <Button size="sm" variant={showInsights ? "solid" : "ghost"} colorScheme="gray" bg={showInsights ? "carbon.700" : undefined} leftIcon={<BarChart3 size={14} />} onClick={toggleInsights} flexShrink={0}>
-              Insights
-            </Button>
           </Flex>
+          )}
           <Box position="relative" flex={1} minH={{ base: "420px", lg: 0 }} overflow="hidden">
             <AnimatePresence mode="wait" initial={false}>
               {zoneId && zone ? (

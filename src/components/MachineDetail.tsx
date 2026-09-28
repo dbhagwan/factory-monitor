@@ -45,6 +45,8 @@ const fmtTime = (t: number) =>
 const HISTORY_SHORT = 60;
 const HISTORY_LONG = 360;
 const MIN_SPAN_MS = 60_000;
+/** Following live shows a rolling window this long; swipe back to see more. */
+const LIVE_SPAN_MS = 15 * 60_000;
 
 export function MachineDetail({ model, channel, onChannelChange, onClose }: Props) {
   const samples = useTelemetryHistory(model?.machine.id);
@@ -53,67 +55,151 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
 
   // Time window over the samples. null = follow live and show everything loaded.
   const [view, setView] = useState<{ start: number; end: number } | null>(null);
-  const chartRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  // Callback ref: the chart lives inside a portal, so bind gestures when it mounts.
+  const [chartEl, setChartEl] = useState<HTMLDivElement | null>(null);
+  const overviewRef = useRef<SVGSVGElement>(null);
   const first = samples[0]?.t;
   const last = samples[samples.length - 1]?.t;
+  const boundsRef = useRef({ first, last });
+  boundsRef.current = { first, last };
+  const historyMinutesRef = useRef(historyMinutes);
+  historyMinutesRef.current = historyMinutes;
+
   useEffect(() => {
     setView(null);
     setHistoryMinutes(HISTORY_SHORT);
   }, [model?.machine.id]);
 
+  // Gesture deltas are accumulated and applied once per animation frame, so a
+  // trackpad firing at 120 Hz never re-renders the chart faster than the screen.
+  const pending = useRef({ dx: 0, zoom: 0, anchor: 0.5 });
+  const raf = useRef<number | null>(null);
+  const flush = () => {
+    raf.current = null;
+    const { first: f, last: l } = boundsRef.current;
+    const { dx, zoom, anchor } = pending.current;
+    pending.current = { dx: 0, zoom: 0, anchor };
+    if (f === undefined || l === undefined || l <= f) return;
+    const width = chartEl?.clientWidth || 1;
+    const cur = viewRef.current ?? { start: Math.max(f, l - LIVE_SPAN_MS), end: l };
+    let span = cur.end - cur.start;
+    let start = cur.start;
+    if (zoom !== 0) {
+      const factor = Math.exp(zoom * 0.01);
+      const pivot = start + anchor * span;
+      span = Math.min(l - f, Math.max(MIN_SPAN_MS, span * factor));
+      start = pivot - anchor * span;
+    }
+    start += (dx / width) * span;
+    if (start < f) start = f;
+    if (start + span > l) start = l - span;
+    if (start <= f && historyMinutesRef.current === HISTORY_SHORT) setHistoryMinutes(HISTORY_LONG);
+    viewRef.current = { start, end: start + span };
+    setView(viewRef.current);
+  };
+  const queue = (dx: number, zoom: number, anchor?: number) => {
+    pending.current.dx += dx;
+    pending.current.zoom += zoom;
+    if (anchor !== undefined) pending.current.anchor = anchor;
+    if (raf.current === null) raf.current = requestAnimationFrame(flush);
+  };
+  useEffect(() => () => { if (raf.current !== null) cancelAnimationFrame(raf.current); }, []);
+
   // Two-finger swipe scrubs, pinch zooms. Attached natively so preventDefault
   // works (React's onWheel is passive) and macOS does not treat the swipe as
-  // browser back navigation.
+  // browser back navigation. Vertical scrolling still reaches the drawer.
   useEffect(() => {
-    const el = chartRef.current;
+    const el = chartEl;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if (first === undefined || last === undefined || last <= first) return;
       const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
       const pinch = e.ctrlKey;
-      if (!horizontal && !pinch && !e.shiftKey) return; // let the drawer scroll vertically
+      if (!horizontal && !pinch && !e.shiftKey) return;
       e.preventDefault();
       const width = el.clientWidth || 1;
-      setView((v) => {
-        const cur = v ?? { start: first, end: last };
-        let span = cur.end - cur.start;
-        let start = cur.start;
-        let end = cur.end;
-        if (pinch) {
-          const factor = Math.exp(e.deltaY * 0.01);
-          const anchor = start + ((e.offsetX / width) * span);
-          span = Math.min(last - first, Math.max(MIN_SPAN_MS, span * factor));
-          start = anchor - (anchor - cur.start) * (span / (cur.end - cur.start));
-          end = start + span;
-        } else {
-          const delta = e.shiftKey && !horizontal ? e.deltaY : e.deltaX;
-          const shift = (delta / width) * span;
-          start += shift;
-          end += shift;
-        }
-        if (start < first) {
-          start = first;
-          end = first + span;
-        }
-        if (end > last) {
-          end = last;
-          start = last - span;
-        }
-        // Reaching the oldest loaded sample asks for a longer history.
-        if (start <= first && historyMinutes === HISTORY_SHORT) setHistoryMinutes(HISTORY_LONG);
-        return end >= last && start <= first ? null : { start, end };
-      });
+      if (pinch) queue(0, e.deltaY, e.offsetX / width);
+      else queue(e.shiftKey && !horizontal ? e.deltaY : e.deltaX, 0);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [first, last, historyMinutes]);
+  }, [chartEl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Drag on the chart pans; drag on the overview moves the window directly.
+  const drag = useRef<{ x: number; mode: "chart" | "overview" } | null>(null);
+  const onPointerDown = (mode: "chart" | "overview") => (e: React.PointerEvent<Element>) => {
+    if (e.button !== 0) return;
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    drag.current = { x: e.clientX, mode };
+    if (mode === "overview") jumpOverview(e);
+  };
+  const onPointerMove = (e: React.PointerEvent<Element>) => {
+    if (!drag.current) return;
+    const dx = e.clientX - drag.current.x;
+    drag.current.x = e.clientX;
+    if (drag.current.mode === "chart") queue(-dx, 0);
+    else jumpOverview(e);
+  };
+  const onPointerUp = () => { drag.current = null; };
+  /** Centre the window on the overview position under the pointer. */
+  const jumpOverview = (e: React.PointerEvent<Element>) => {
+    const { first: f, last: l } = boundsRef.current;
+    const svg = overviewRef.current;
+    if (!svg || f === undefined || l === undefined || l <= f) return;
+    const rect = svg.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const cur = viewRef.current ?? { start: Math.max(f, l - LIVE_SPAN_MS), end: l };
+    const span = cur.end - cur.start;
+    let start = f + frac * (l - f) - span / 2;
+    start = Math.max(f, Math.min(l - span, start));
+    viewRef.current = { start, end: start + span };
+    setView(viewRef.current);
+  };
+
+  // A window pinned to the live edge slides along as new samples arrive.
+  const prevLast = useRef(last);
+  useEffect(() => {
+    const v = viewRef.current;
+    if (v && last !== undefined && prevLast.current !== undefined && v.end >= prevLast.current) {
+      const span = v.end - v.start;
+      viewRef.current = { start: last - span, end: last };
+      setView(viewRef.current);
+    }
+    prevLast.current = last;
+  }, [last]);
 
   const following = view === null;
+  const liveWindow = first !== undefined && last !== undefined ? { start: Math.max(first, last - LIVE_SPAN_MS), end: last } : null;
+  const window = view ?? liveWindow;
+  const MAX_POINTS = 320;
   const visible = useMemo(() => {
-    if (!view) return samples;
     const pad = 20_000;
-    return samples.filter((s) => s.t >= view.start - pad && s.t <= view.end + pad);
-  }, [samples, view]);
+    const inWindow = window ? samples.filter((s) => s.t >= window.start - pad && s.t <= window.end + pad) : samples;
+    if (inWindow.length <= MAX_POINTS) return inWindow;
+    const stride = Math.ceil(inWindow.length / MAX_POINTS);
+    return inWindow.filter((_, i) => i % stride === 0 || i === inWindow.length - 1);
+  }, [samples, window?.start, window?.end]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Overview strip: the whole loaded range, downsampled.
+  const overview = useMemo(() => {
+    if (samples.length < 2 || first === undefined || last === undefined) return null;
+    const stride = Math.max(1, Math.ceil(samples.length / 200));
+    const pts = samples.filter((_, i) => i % stride === 0 || i === samples.length - 1);
+    const field = CHANNEL_META[channel].field;
+    const vals = pts.map((s) => s[field]);
+    const lo = Math.min(...vals);
+    const hi = Math.max(...vals);
+    const spanV = hi - lo || 1;
+    const W = 1000;
+    const H = 30;
+    const path = pts
+      .map((s, i) => `${i === 0 ? "M" : "L"}${(((s.t - first) / (last - first)) * W).toFixed(1)},${(H - 3 - ((s[field] - lo) / spanV) * (H - 6)).toFixed(1)}`)
+      .join(" ");
+    const win = window ?? { start: first, end: last };
+    const x0 = ((win.start - first) / (last - first)) * W;
+    const x1 = ((win.end - first) / (last - first)) * W;
+    return { path, W, H, x0, x1 };
+  }, [samples, window?.start, window?.end, first, last, channel]); // eslint-disable-line react-hooks/exhaustive-deps
   const fmtShort = (t: number) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const fmtRange = (a: number, b: number) => `${fmtShort(a)} – ${fmtShort(b)}`;
   const meta = CHANNEL_META[channel];
@@ -157,14 +243,23 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                     </Text>
                   </HStack>
                 </HStack>
-                <Box h="180px" ref={chartRef} sx={{ overscrollBehaviorX: "contain", touchAction: "pan-y" }} cursor={following ? "default" : "ew-resize"}>
+                <Box
+                  h="180px"
+                  ref={setChartEl}
+                  sx={{ overscrollBehaviorX: "contain", touchAction: "pan-y", userSelect: "none" }}
+                  cursor={drag.current?.mode === "chart" ? "grabbing" : "grab"}
+                  onPointerDown={onPointerDown("chart")}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerCancel={onPointerUp}
+                >
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={visible} margin={{ top: 8, right: 8, bottom: 0, left: -6 }}>
                       <XAxis
                         dataKey="t"
                         type="number"
                         scale="time"
-                        domain={view ? [view.start, view.end] : ["dataMin", "dataMax"]}
+                        domain={window ? [window.start, window.end] : ["dataMin", "dataMax"]}
                         allowDataOverflow
                         tickFormatter={fmtTime}
                         stroke="#3A424B"
@@ -219,6 +314,27 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                     </LineChart>
                   </ResponsiveContainer>
                 </Box>
+                {overview && (
+                  <Box mt={1} px={1}>
+                    <svg
+                      ref={overviewRef}
+                      viewBox={`0 0 ${overview.W} ${overview.H}`}
+                      preserveAspectRatio="none"
+                      width="100%"
+                      height={overview.H}
+                      style={{ display: "block", cursor: "pointer", touchAction: "none" }}
+                      onPointerDown={onPointerDown("overview")}
+                      onPointerMove={onPointerMove}
+                      onPointerUp={onPointerUp}
+                      onPointerCancel={onPointerUp}
+                      aria-label="Timeline overview. Drag to move the window."
+                    >
+                      <rect x={0} y={0} width={overview.W} height={overview.H} fill="#22282E" rx={3} />
+                      <path d={overview.path} fill="none" stroke="#82888F" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                      <rect x={overview.x0} y={0} width={Math.max(6, overview.x1 - overview.x0)} height={overview.H} fill="#5B9CFF" fillOpacity={0.18} stroke="#5B9CFF" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+                    </svg>
+                  </Box>
+                )}
                 <HStack justify="space-between" mt={2} spacing={3}>
                   <Text fontSize="xs" color="text.muted">
                     {history.isLoading
@@ -226,9 +342,9 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                       : history.isError
                       ? "History unavailable; showing live readings only."
                       : view
-                      ? `${fmtRange(view.start, view.end)} · ${Math.round((view.end - view.start) / 60_000)} min window`
-                      : `Last ${historyMinutes} min · ${samples.length} readings · live every 3 s`}
-                    {!history.isLoading && !history.isError && " · swipe sideways to scrub, pinch to zoom."}
+                      ? `${fmtRange(view.start, view.end)} · ${Math.round((view.end - view.start) / 60_000)} min window · ${historyMinutes / 60} h loaded`
+                      : `Live · last ${LIVE_SPAN_MS / 60_000} min of ${historyMinutes / 60} h loaded`}
+                    {!history.isLoading && !history.isError && " · drag or swipe sideways to scrub, pinch to zoom."}
                   </Text>
                   {!following && (
                     <Button size="xs" variant="outline" colorScheme="gray" leftIcon={<Radio size={12} />} onClick={() => setView(null)} flexShrink={0}>
