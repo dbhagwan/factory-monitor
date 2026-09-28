@@ -126,8 +126,8 @@ export function Insights({ alerts, zones, scopeLabel, compareZones = true }: Pro
                 <XAxis type="number" allowDecimals={false} tick={tick} stroke="#2C333A" hide />
                 <YAxis type="category" dataKey="zone" width={78} tick={tick} stroke="#2C333A" tickFormatter={(v: string) => v.split(" ")[0]} />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#ffffff0a" }} />
-                <Bar dataKey="open" name="Open" stackId="z" fill={CATEGORICAL[0]} stroke={SURFACE} strokeWidth={1} isAnimationActive={false} />
-                <Bar dataKey="inProgress" name="In progress" stackId="z" fill="#3A424B" stroke={SURFACE} strokeWidth={1} isAnimationActive={false} />
+                <Bar dataKey="open" name="Open" stackId="z" maxBarSize={18} fill={CATEGORICAL[0]} stroke={SURFACE} strokeWidth={1} isAnimationActive={false} />
+                <Bar dataKey="inProgress" name="In progress" stackId="z" maxBarSize={18} fill="#3A424B" stroke={SURFACE} strokeWidth={1} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </Box>
@@ -141,7 +141,7 @@ export function Insights({ alerts, zones, scopeLabel, compareZones = true }: Pro
               <XAxis type="number" allowDecimals={false} hide />
               <YAxis type="category" dataKey="machine" width={92} tick={tick} stroke="#2C333A" />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#ffffff0a" }} />
-              <Bar dataKey="value" name="Alerts" isAnimationActive={false} label={{ position: "right", fill: "#F4F6F7", fontSize: 10 }}>
+              <Bar dataKey="value" name="Alerts" maxBarSize={18} isAnimationActive={false} label={{ position: "right", fill: "#F4F6F7", fontSize: 10 }}>
                 {top.map((m, i) => (
                   <Cell key={i} fill={toneHex(m.worst)} />
                 ))}
