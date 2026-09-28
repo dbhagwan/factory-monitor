@@ -17,6 +17,8 @@ export interface ChannelMeta {
   label: string;
   field: keyof MachineTelemetry;
   unit: string;
+  /** Value above which an operator would expect a warning. */
+  warnAbove?: number;
   runbook: { title: string; url: string };
 }
 
@@ -25,6 +27,7 @@ export const CHANNEL_META: Record<Channel, ChannelMeta> = {
     label: "Thermal",
     field: "temperature",
     unit: "°C",
+    warnAbove: 85,
     runbook: {
       title: "Diagnosing overheating and coolant faults",
       url: "https://runbooks.factory.local/thermal-faults",
@@ -34,6 +37,7 @@ export const CHANNEL_META: Record<Channel, ChannelMeta> = {
     label: "Mechanical",
     field: "vibration",
     unit: "mm/s",
+    warnAbove: 4,
     runbook: {
       title: "Vibration, wear and drive-train inspection",
       url: "https://runbooks.factory.local/mechanical-inspection",
@@ -52,6 +56,7 @@ export const CHANNEL_META: Record<Channel, ChannelMeta> = {
     label: "Electrical",
     field: "powerDraw",
     unit: "kW",
+    warnAbove: 24,
     runbook: {
       title: "Power supply and emergency-stop recovery",
       url: "https://runbooks.factory.local/electrical-recovery",

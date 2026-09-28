@@ -14,7 +14,7 @@ import type { NormalizedAlert } from "../lib/normalize";
 
 export interface MachineModel {
   machine: Machine;
-  state: MachineState;
+  state: MachineState<NormalizedAlert>;
 }
 
 export interface ZoneModel {

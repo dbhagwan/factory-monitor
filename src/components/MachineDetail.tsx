@@ -1,0 +1,221 @@
+import {
+  Box,
+  Button,
+  Drawer,
+  DrawerBody,
+  DrawerCloseButton,
+  DrawerContent,
+  DrawerHeader,
+  DrawerOverlay,
+  Grid,
+  Heading,
+  HStack,
+  Link,
+  Text,
+} from "@chakra-ui/react";
+import { ExternalLink } from "lucide-react";
+import {
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import type { MachineModel } from "../hooks/useFloor";
+import { CHANNELS, CHANNEL_META, type Channel } from "../lib/channels";
+import { MACHINE_TYPE_LABEL, STATUS_LABEL, toneHex, worstSeverity } from "../lib/health";
+import { useTelemetryHistory } from "../lib/telemetryStore";
+import { AlertList } from "./AlertList";
+import { Sparkline } from "./Sparkline";
+
+interface Props {
+  model: MachineModel | null;
+  channel: Channel;
+  onChannelChange: (c: Channel) => void;
+  onClose: () => void;
+}
+
+const fmtTime = (t: number) =>
+  new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+export function MachineDetail({ model, channel, onChannelChange, onClose }: Props) {
+  const samples = useTelemetryHistory(model?.machine.id);
+  const meta = CHANNEL_META[channel];
+  const machine = model?.machine;
+  const alerts = model ? [...model.state.open, ...model.state.acked] : [];
+  const channelAlerts = alerts.filter((a) => a.channel === channel);
+  const stroke = worstSeverity(channelAlerts.filter((a) => !a.acknowledged));
+  const lineColor = stroke ? toneHex(stroke) : "#5B9CFF";
+  const latest = samples[samples.length - 1];
+  const value = latest ? latest[meta.field] : machine?.telemetry[meta.field];
+
+  return (
+    <Drawer isOpen={!!model} placement="right" size="md" onClose={onClose}>
+      <DrawerOverlay bg="blackAlpha.600" />
+      <DrawerContent borderLeft="1px solid" borderColor="carbon.700">
+        <DrawerCloseButton top={4} />
+        {machine && model && (
+          <>
+            <DrawerHeader pb={2}>
+              <HStack spacing={2} mb={1}>
+                <Box w="10px" h="10px" borderRadius="sm" bg={toneHex(model.state.tone)} />
+                <Heading size="md">{machine.name}</Heading>
+              </HStack>
+              <Text fontSize="sm" color="text.muted" fontWeight={400}>
+                {MACHINE_TYPE_LABEL[machine.type]} · {STATUS_LABEL[machine.status]} ·{" "}
+                {model.state.open.length} open
+              </Text>
+            </DrawerHeader>
+            <DrawerBody pb={8}>
+              <HStack spacing={1} mb={4} wrap="wrap">
+                {CHANNELS.map((c) => {
+                  const cAlerts = alerts.filter((a) => a.channel === c && !a.acknowledged);
+                  const sev = worstSeverity(cAlerts);
+                  const active = c === channel;
+                  return (
+                    <Button
+                      key={c}
+                      size="sm"
+                      variant={active ? "solid" : "ghost"}
+                      colorScheme="gray"
+                      bg={active ? "carbon.700" : undefined}
+                      color={active ? "ink" : "text.muted"}
+                      onClick={() => onChannelChange(c)}
+                      leftIcon={
+                        <Box w="6px" h="6px" borderRadius="full" bg={sev ? toneHex(sev) : "carbon.600"} />
+                      }
+                    >
+                      {CHANNEL_META[c].label}
+                    </Button>
+                  );
+                })}
+              </HStack>
+
+              <Box bg="carbon.800" borderRadius="lg" p={4} mb={4}>
+                <HStack justify="space-between" align="baseline" mb={2}>
+                  <Text fontSize="sm" color="text.muted">
+                    {meta.label} · live
+                  </Text>
+                  <HStack align="baseline" spacing={1}>
+                    <Text fontSize="2xl" fontWeight={500} color={lineColor}>
+                      {value !== undefined ? value.toFixed(1) : "—"}
+                    </Text>
+                    <Text fontSize="sm" color="text.muted">
+                      {meta.unit}
+                    </Text>
+                  </HStack>
+                </HStack>
+                <Box h="180px">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={samples} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+                      <XAxis
+                        dataKey="t"
+                        tickFormatter={fmtTime}
+                        stroke="#3A424B"
+                        tick={{ fill: "#82888F", fontSize: 11 }}
+                        minTickGap={40}
+                      />
+                      <YAxis
+                        stroke="#3A424B"
+                        tick={{ fill: "#82888F", fontSize: 11 }}
+                        domain={["auto", "auto"]}
+                        width={48}
+                      />
+                      <Tooltip
+                        contentStyle={{ background: "#2C333A", border: "none", borderRadius: 6, fontSize: 12 }}
+                        labelFormatter={(t) => fmtTime(Number(t))}
+                        formatter={(v) => [`${Number(v).toFixed(2)} ${meta.unit}`, meta.label]}
+                      />
+                      {meta.warnAbove !== undefined && (
+                        <ReferenceLine
+                          y={meta.warnAbove}
+                          stroke={toneHex("warning")}
+                          strokeDasharray="4 4"
+                          label={{ value: "warn", fill: "#82888F", fontSize: 10, position: "insideTopRight" }}
+                        />
+                      )}
+                      <Line
+                        type="monotone"
+                        dataKey={meta.field}
+                        stroke={lineColor}
+                        strokeWidth={2}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Box>
+                <Text fontSize="xs" color="text.muted" mt={2}>
+                  {samples.length === 1
+                    ? "Waiting for the first live reading. Telemetry arrives every few seconds across the floor."
+                    : `${samples.length} readings this session`}
+                </Text>
+              </Box>
+
+              <Grid templateColumns="repeat(3, 1fr)" gap={2} mb={5}>
+                {CHANNELS.filter((c) => c !== channel).map((c) => {
+                  const m = CHANNEL_META[c];
+                  const v = latest ? latest[m.field] : machine.telemetry[m.field];
+                  return (
+                    <Box
+                      key={c}
+                      as="button"
+                      textAlign="left"
+                      bg="carbon.800"
+                      borderRadius="md"
+                      p={3}
+                      onClick={() => onChannelChange(c)}
+                      _hover={{ bg: "carbon.700" }}
+                    >
+                      <Text fontSize="xs" color="text.muted">
+                        {m.label}
+                      </Text>
+                      <Text fontWeight={500}>
+                        {v.toFixed(1)}{" "}
+                        <Text as="span" fontSize="xs" color="text.muted">
+                          {m.unit}
+                        </Text>
+                      </Text>
+                      <Sparkline samples={samples} field={m.field} color="#82888F" width={90} height={22} />
+                    </Box>
+                  );
+                })}
+              </Grid>
+
+              <Heading size="sm" mb={2}>
+                {meta.label} problems
+              </Heading>
+              <AlertList
+                alerts={channelAlerts}
+                compact
+                emptyTitle={`No problems on ${meta.label.toLowerCase()}`}
+                emptyBody="Readings on this subsystem are within limits."
+              />
+
+              <Box mt={5} bg="brand.900" borderRadius="lg" p={4}>
+                <Text fontSize="xs" color="brand.200" mb={1}>
+                  Runbook
+                </Text>
+                <Link
+                  href={meta.runbook.url}
+                  isExternal
+                  fontWeight={500}
+                  color="ink"
+                  display="inline-flex"
+                  alignItems="center"
+                  gap={2}
+                  _hover={{ color: "brand.300" }}
+                >
+                  {meta.runbook.title}
+                  <ExternalLink size={14} />
+                </Link>
+              </Box>
+            </DrawerBody>
+          </>
+        )}
+      </DrawerContent>
+    </Drawer>
+  );
+}

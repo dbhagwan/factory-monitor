@@ -35,12 +35,12 @@ export function sortAlerts<T extends Alert>(alerts: T[]): T[] {
 
 export type Tone = Severity | "healthy" | "idle" | "maintenance";
 
-export interface MachineState {
+export interface MachineState<T extends Alert = Alert> {
   tone: Tone;
   /** True when the colour comes from an acknowledged alert only. */
   hollow: boolean;
-  open: Alert[];
-  acked: Alert[];
+  open: T[];
+  acked: T[];
 }
 
 /**
@@ -48,7 +48,7 @@ export interface MachineState {
  * on it has been acknowledged it keeps that colour but renders hollow, meaning
  * "someone is on it". With no alerts the colour follows machine status.
  */
-export function machineState(machine: Machine, alerts: Alert[]): MachineState {
+export function machineState<T extends Alert>(machine: Machine, alerts: T[]): MachineState<T> {
   const mine = alerts.filter((a) => a.machineId === machine.id);
   const open = mine.filter((a) => !a.acknowledged);
   const acked = mine.filter((a) => a.acknowledged);
