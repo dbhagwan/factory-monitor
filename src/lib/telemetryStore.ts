@@ -13,7 +13,7 @@ export interface Sample extends MachineTelemetry {
   t: number;
 }
 
-const MAX_SAMPLES = 400;
+const MAX_SAMPLES = 2400; // six hours of history at 20 s plus live
 const buffers = new Map<string, Sample[]>();
 const EMPTY: Sample[] = [];
 

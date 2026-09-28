@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Drawer,
   DrawerBody,
   DrawerCloseButton,
@@ -12,7 +13,8 @@ import {
   Link,
   Text,
 } from "@chakra-ui/react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Radio } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Line,
   LineChart,
@@ -40,9 +42,80 @@ interface Props {
 const fmtTime = (t: number) =>
   new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
+const HISTORY_SHORT = 60;
+const HISTORY_LONG = 360;
+const MIN_SPAN_MS = 60_000;
+
 export function MachineDetail({ model, channel, onChannelChange, onClose }: Props) {
   const samples = useTelemetryHistory(model?.machine.id);
-  const history = useMachineHistory(model?.machine.id);
+  const [historyMinutes, setHistoryMinutes] = useState(HISTORY_SHORT);
+  const history = useMachineHistory(model?.machine.id, historyMinutes);
+
+  // Time window over the samples. null = follow live and show everything loaded.
+  const [view, setView] = useState<{ start: number; end: number } | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const first = samples[0]?.t;
+  const last = samples[samples.length - 1]?.t;
+  useEffect(() => {
+    setView(null);
+    setHistoryMinutes(HISTORY_SHORT);
+  }, [model?.machine.id]);
+
+  // Two-finger swipe scrubs, pinch zooms. Attached natively so preventDefault
+  // works (React's onWheel is passive) and macOS does not treat the swipe as
+  // browser back navigation.
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (first === undefined || last === undefined || last <= first) return;
+      const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      const pinch = e.ctrlKey;
+      if (!horizontal && !pinch && !e.shiftKey) return; // let the drawer scroll vertically
+      e.preventDefault();
+      const width = el.clientWidth || 1;
+      setView((v) => {
+        const cur = v ?? { start: first, end: last };
+        let span = cur.end - cur.start;
+        let start = cur.start;
+        let end = cur.end;
+        if (pinch) {
+          const factor = Math.exp(e.deltaY * 0.01);
+          const anchor = start + ((e.offsetX / width) * span);
+          span = Math.min(last - first, Math.max(MIN_SPAN_MS, span * factor));
+          start = anchor - (anchor - cur.start) * (span / (cur.end - cur.start));
+          end = start + span;
+        } else {
+          const delta = e.shiftKey && !horizontal ? e.deltaY : e.deltaX;
+          const shift = (delta / width) * span;
+          start += shift;
+          end += shift;
+        }
+        if (start < first) {
+          start = first;
+          end = first + span;
+        }
+        if (end > last) {
+          end = last;
+          start = last - span;
+        }
+        // Reaching the oldest loaded sample asks for a longer history.
+        if (start <= first && historyMinutes === HISTORY_SHORT) setHistoryMinutes(HISTORY_LONG);
+        return end >= last && start <= first ? null : { start, end };
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [first, last, historyMinutes]);
+
+  const following = view === null;
+  const visible = useMemo(() => {
+    if (!view) return samples;
+    const pad = 20_000;
+    return samples.filter((s) => s.t >= view.start - pad && s.t <= view.end + pad);
+  }, [samples, view]);
+  const fmtShort = (t: number) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const fmtRange = (a: number, b: number) => `${fmtShort(a)} – ${fmtShort(b)}`;
   const meta = CHANNEL_META[channel];
   const machine = model?.machine;
   const alerts = model ? [...model.state.open, ...model.state.acked] : [];
@@ -84,14 +157,15 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                     </Text>
                   </HStack>
                 </HStack>
-                <Box h="180px">
+                <Box h="180px" ref={chartRef} sx={{ overscrollBehaviorX: "contain", touchAction: "pan-y" }} cursor={following ? "default" : "ew-resize"}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={samples} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+                    <LineChart data={visible} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
                       <XAxis
                         dataKey="t"
                         type="number"
                         scale="time"
-                        domain={["dataMin", "dataMax"]}
+                        domain={view ? [view.start, view.end] : ["dataMin", "dataMax"]}
+                        allowDataOverflow
                         tickFormatter={fmtTime}
                         stroke="#3A424B"
                         tick={{ fill: "#82888F", fontSize: 11 }}
@@ -144,13 +218,23 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                     </LineChart>
                   </ResponsiveContainer>
                 </Box>
-                <Text fontSize="xs" color="text.muted" mt={2}>
-                  {history.isLoading
-                    ? "Loading the last hour…"
-                    : history.isError
-                    ? "History unavailable; showing live readings only."
-                    : `Last 60 min · ${samples.length} readings · live every 3 s. Vertical lines mark when an alert was raised.`}
-                </Text>
+                <HStack justify="space-between" mt={2} spacing={3}>
+                  <Text fontSize="xs" color="text.muted">
+                    {history.isLoading
+                      ? "Loading history…"
+                      : history.isError
+                      ? "History unavailable; showing live readings only."
+                      : view
+                      ? `${fmtRange(view.start, view.end)} · ${Math.round((view.end - view.start) / 60_000)} min window`
+                      : `Last ${historyMinutes} min · ${samples.length} readings · live every 3 s`}
+                    {!history.isLoading && !history.isError && " · swipe sideways to scrub, pinch to zoom."}
+                  </Text>
+                  {!following && (
+                    <Button size="xs" variant="outline" colorScheme="gray" leftIcon={<Radio size={12} />} onClick={() => setView(null)} flexShrink={0}>
+                      Live
+                    </Button>
+                  )}
+                </HStack>
               </Box>
 
               <Grid templateColumns="repeat(4, 1fr)" gap={2} mb={5}>
