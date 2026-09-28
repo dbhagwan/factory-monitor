@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   Drawer,
   DrawerBody,
   DrawerCloseButton,
@@ -71,30 +70,6 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
               </Text>
             </DrawerHeader>
             <DrawerBody pb={8}>
-              <HStack spacing={1} mb={4} wrap="wrap">
-                {CHANNELS.map((c) => {
-                  const cAlerts = alerts.filter((a) => a.channel === c && !a.acknowledged);
-                  const sev = worstSeverity(cAlerts);
-                  const active = c === channel;
-                  return (
-                    <Button
-                      key={c}
-                      size="sm"
-                      variant={active ? "solid" : "ghost"}
-                      colorScheme="gray"
-                      bg={active ? "carbon.700" : undefined}
-                      color={active ? "ink" : "text.muted"}
-                      onClick={() => onChannelChange(c)}
-                      leftIcon={
-                        <Box w="6px" h="6px" borderRadius="full" bg={sev ? toneHex(sev) : "carbon.600"} />
-                      }
-                    >
-                      {CHANNEL_META[c].label}
-                    </Button>
-                  );
-                })}
-              </HStack>
-
               <Box bg="carbon.800" borderRadius="lg" p={4} mb={4}>
                 <HStack justify="space-between" align="baseline" mb={2}>
                   <Text fontSize="sm" color="text.muted">
@@ -178,31 +153,44 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                 </Text>
               </Box>
 
-              <Grid templateColumns="repeat(3, 1fr)" gap={2} mb={5}>
-                {CHANNELS.filter((c) => c !== channel).map((c) => {
+              <Grid templateColumns="repeat(4, 1fr)" gap={2} mb={5}>
+                {CHANNELS.map((c) => {
                   const m = CHANNEL_META[c];
                   const v = latest ? latest[m.field] : machine.telemetry[m.field];
+                  const openHere = alerts.filter((a) => a.channel === c && !a.acknowledged);
+                  const ackedHere = alerts.filter((a) => a.channel === c && a.acknowledged);
+                  const sev = worstSeverity(openHere) ?? worstSeverity(ackedHere);
+                  const faultHex = sev ? toneHex(sev) : null;
+                  const active = c === channel;
                   return (
                     <Box
                       key={c}
                       as="button"
                       textAlign="left"
-                      bg="carbon.800"
+                      bg={active ? "carbon.700" : "carbon.800"}
                       borderRadius="md"
-                      p={3}
+                      p={2.5}
+                      minW={0}
+                      border="1px solid"
+                      borderColor={active ? "brand.400" : "transparent"}
                       onClick={() => onChannelChange(c)}
                       _hover={{ bg: "carbon.700" }}
+                      aria-pressed={active}
+                      title={sev ? `${openHere.length} open, ${ackedHere.length} in progress` : "No problems"}
                     >
-                      <Text fontSize="xs" color="text.muted">
-                        {m.label}
-                      </Text>
-                      <Text fontWeight={500}>
+                      <HStack spacing={1.5} mb={0.5}>
+                        <Box w="6px" h="6px" borderRadius="full" bg={faultHex ?? "carbon.600"} flexShrink={0} />
+                        <Text fontSize="xs" color="text.muted" noOfLines={1}>
+                          {m.label}
+                        </Text>
+                      </HStack>
+                      <Text fontWeight={500} color={faultHex ?? "ink"} whiteSpace="nowrap">
                         {v.toFixed(1)}{" "}
                         <Text as="span" fontSize="xs" color="text.muted">
                           {m.unit}
                         </Text>
                       </Text>
-                      <Sparkline samples={samples} field={m.field} color="#82888F" width={90} height={22} />
+                      <Sparkline samples={samples} field={m.field} color={faultHex ?? "#82888F"} width={84} height={22} />
                     </Box>
                   );
                 })}
