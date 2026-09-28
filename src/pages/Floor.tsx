@@ -34,7 +34,7 @@ const SEVERITIES: Severity[] = ["critical", "warning", "info"];
 
 /**
  * The whole product is one screen: the floor (or one zone of it) on the
- * left, the problems rail on the right, machine detail in a drawer. Zooming
+ * left, the alerts rail on the right, machine detail in a drawer. Zooming
  * into a zone is a camera move on the same map, then the isometric scene
  * takes over in place.
  */
@@ -178,7 +178,7 @@ export function Floor() {
             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             color="ink"
             _placeholder={{ color: "text.muted" }}
-            title="Problems you acknowledge are assigned to this name"
+            title="Alerts you acknowledge are assigned to this name"
           />
         </HStack>
       </Flex>
@@ -273,7 +273,7 @@ export function Floor() {
           </AnimatePresence>
         </Flex>
 
-        {/* problems rail */}
+        {/* alerts rail */}
         <Flex direction="column" minH={0} bg="carbon.900" borderRadius="lg" p={4}>
           <Flex justify="space-between" align="baseline" mb={3} flexShrink={0}>
             <Heading size="md">Alerts</Heading>

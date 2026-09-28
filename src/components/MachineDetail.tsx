@@ -176,7 +176,7 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                       onClick={() => onChannelChange(c)}
                       _hover={{ bg: "carbon.700" }}
                       aria-pressed={active}
-                      title={sev ? `${openHere.length} open, ${ackedHere.length} in progress` : "No problems"}
+                      title={sev ? `${openHere.length} open, ${ackedHere.length} in progress` : "No alerts"}
                     >
                       <HStack spacing={1.5} mb={0.5}>
                         <Box w="6px" h="6px" borderRadius="full" bg={faultHex ?? "carbon.600"} flexShrink={0} />

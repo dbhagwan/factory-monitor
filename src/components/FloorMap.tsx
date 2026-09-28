@@ -199,7 +199,7 @@ export function FloorMap({
               style={{ cursor: "pointer" }}
               onClick={() => onZoneClick(z.zone.id)}
               role="link"
-              aria-label={`${z.zone.name}, ${HEALTH_LABEL[z.health]}, ${z.openAlerts.length} open problems`}
+              aria-label={`${z.zone.name}, ${HEALTH_LABEL[z.health]}, ${z.openAlerts.length} open alerts`}
             >
               <polygon
                 points={plan.polygon.map((p) => p.join(",")).join(" ")}
