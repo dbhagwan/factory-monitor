@@ -14,9 +14,11 @@
     "@emotion/styled": "^11.14.0",
     "@tanstack/react-query": "^5.60.0",
     "framer-motion": "^7.6.1",
+    "lucide-react": "^1.48.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
