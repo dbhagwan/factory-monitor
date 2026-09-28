@@ -150,7 +150,7 @@ export function Floor() {
                 _hover={{ color: "ink" }}
                 title="Show every alert in the rail"
               >
-                <Text as="span" color="ink" fontWeight={500}>{open.length}</Text> open
+                <Text as="span" color="ink" fontWeight={500}>{open.length}</Text> active alerts
               </Text>
               {SEVERITIES.map((s) => {
                 const n = open.filter((a) => a.severity === s).length;
