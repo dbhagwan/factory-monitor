@@ -132,7 +132,7 @@ export const ROOMS: Room[] = [
   },
   {
     id: "storage",
-    name: "Raw material storage",
+    name: "Raw material",
     polygon: [
       [1030, 480],
       [1130, 480],
