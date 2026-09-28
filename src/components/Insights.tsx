@@ -1,10 +1,24 @@
-import { Box, Grid, HStack, IconButton, Text } from "@chakra-ui/react";
+import { Box, Button, ButtonGroup, Grid, HStack, IconButton, Text } from "@chakra-ui/react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { useMemo } from "react";
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ZoneModel } from "../hooks/useFloor";
 import { SEVERITY_LABEL, toneHex, type Severity } from "../lib/health";
-import { alertsPerHour, countByChannel, countByZone, failureRate, meanTimeToAcknowledge, topMachines } from "../lib/kpis";
+import {
+  alertsOverTime,
+  bucketLabel,
+  countByChannel,
+  countByZone,
+  failureRateFor,
+  formatBucket,
+  inRange,
+  meanTimeToAcknowledge,
+  RANGES,
+  rangeSpec,
+  topMachines,
+  UNIT_SHORT,
+  type Range,
+} from "../lib/kpis";
 import type { NormalizedAlert } from "../lib/normalize";
 
 /**
@@ -15,11 +29,9 @@ import type { NormalizedAlert } from "../lib/normalize";
  */
 const SURFACE = "#171B1F";
 const CATEGORICAL = ["#3987e5", "#d95926", "#199e70", "#9085e9"]; // validated adjacent-pair CVD safe on carbon.900
-const HOURS = 12;
 const SEVERITIES: Severity[] = ["critical", "warning", "info"];
 
 const tooltipStyle = { background: "#2C333A", border: "none", borderRadius: 6, fontSize: 12, padding: "6px 8px" };
-const fmtHour = (t: number) => new Date(t).toLocaleTimeString([], { hour: "2-digit" });
 
 interface Props {
   alerts: NormalizedAlert[];
@@ -30,6 +42,8 @@ interface Props {
   /** Full-screen layout with larger charts. */
   expanded?: boolean;
   onToggleExpand?: () => void;
+  range: Range;
+  onRangeChange: (r: Range) => void;
 }
 
 function Tile({ title, stat, big, children }: { title: string; stat?: string; big?: boolean; children: React.ReactNode }) {
@@ -57,15 +71,18 @@ function Legend({ items, big }: { items: Array<{ label: string; color: string; v
   );
 }
 
-export function Insights({ alerts, zones, scopeLabel, compareZones = true, expanded = false, onToggleExpand }: Props) {
+export function Insights({ alerts: allAlerts, zones, scopeLabel, compareZones = true, expanded = false, onToggleExpand, range, onRangeChange }: Props) {
   const big = expanded;
   const tick = { fill: "#82888F", fontSize: big ? 12 : 10 };
-  const perHour = useMemo(() => alertsPerHour(alerts, HOURS), [alerts]);
+  const alerts = useMemo(() => inRange(allAlerts, range), [allAlerts, range]);
+  const spec = useMemo(() => rangeSpec(range, allAlerts), [range, allAlerts]);
+  const series = useMemo(() => alertsOverTime(allAlerts, range), [allAlerts, range]);
   const byChannel = useMemo(() => countByChannel(alerts), [alerts]);
   const byZone = useMemo(() => countByZone(alerts, zones.map((z) => ({ id: z.zone.id, name: z.zone.name }))), [alerts, zones]);
   const top = useMemo(() => topMachines(alerts, 5), [alerts]);
-  const rate = failureRate(alerts, HOURS);
+  const rate = failureRateFor(allAlerts, range);
   const mtta = meanTimeToAcknowledge(alerts);
+  const fmt = (t: number) => formatBucket(spec.unit, t);
   const machines = zones.flatMap((z) => z.machines);
   const availability = machines.length ? Math.round((machines.filter((m) => m.machine.status === "running").length / machines.length) * 100) : 0;
   const total = alerts.length;
@@ -73,10 +90,17 @@ export function Insights({ alerts, zones, scopeLabel, compareZones = true, expan
   return (
     <Box display="flex" flexDirection="column" h="full" minH={0}>
       <HStack spacing={big ? 10 : 6} mb={big ? 4 : 2} fontSize={big ? "md" : "sm"} flexShrink={0}>
-        <Text fontWeight={500} fontSize={big ? "xl" : undefined}>Insights · {scopeLabel}</Text>
-        <Text color="text.muted"><Text as="span" color="ink" fontWeight={500} fontSize={big ? "xl" : undefined}>{rate.toFixed(1)}</Text> failures / h, last {HOURS} h</Text>
-        <Text color="text.muted"><Text as="span" color="ink" fontWeight={500} fontSize={big ? "xl" : undefined}>{mtta === null ? "—" : `${mtta < 1 ? "<1" : Math.round(mtta)} min`}</Text> mean time to acknowledge</Text>
-        <Text color="text.muted"><Text as="span" color="ink" fontWeight={500} fontSize={big ? "xl" : undefined}>{availability}%</Text> machines running</Text>
+        <Text fontWeight={500} fontSize={big ? "xl" : undefined} whiteSpace="nowrap">Insights · {scopeLabel}</Text>
+        <ButtonGroup size={big ? "sm" : "xs"} isAttached variant="outline" colorScheme="gray" flexShrink={0}>
+          {RANGES.map((r) => (
+            <Button key={r.id} onClick={() => onRangeChange(r.id)} bg={range === r.id ? "carbon.700" : undefined} color={range === r.id ? "ink" : "text.muted"}>
+              {r.label}
+            </Button>
+          ))}
+        </ButtonGroup>
+        <Text color="text.muted" whiteSpace="nowrap"><Text as="span" color="ink" fontWeight={500} fontSize={big ? "xl" : undefined}>{rate.value.toFixed(1)}</Text> failures / {UNIT_SHORT[rate.per]}</Text>
+        <Text color="text.muted" whiteSpace="nowrap"><Text as="span" color="ink" fontWeight={500} fontSize={big ? "xl" : undefined}>{mtta === null ? "—" : `${mtta < 1 ? "<1" : Math.round(mtta)} min`}</Text> mean time to acknowledge</Text>
+        <Text color="text.muted" whiteSpace="nowrap"><Text as="span" color="ink" fontWeight={500} fontSize={big ? "xl" : undefined}>{availability}%</Text> machines running</Text>
         {onToggleExpand && (
           <IconButton
             aria-label={expanded ? "Collapse insights" : "Expand insights to full screen"}
@@ -97,13 +121,13 @@ export function Insights({ alerts, zones, scopeLabel, compareZones = true, expan
         flex={1}
         minH={0}
       >
-        <Tile title={`Alerts raised per hour · last ${HOURS} h`} stat={`${total} total`} big={big}>
+        <Tile title={`Alerts raised ${bucketLabel(spec.unit)} · ${spec.windowLabel}`} stat={`${total} total`} big={big}>
           <Box h={big ? "calc(100% - 22px)" : "calc(100% - 16px)"}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={perHour} margin={{ top: 4, right: 4, bottom: 0, left: big ? -16 : -24 }} barCategoryGap={big ? 6 : 3}>
-                <XAxis dataKey="t" tickFormatter={fmtHour} tick={tick} stroke="#2C333A" minTickGap={24} />
+              <BarChart data={series} margin={{ top: 4, right: 4, bottom: 0, left: big ? -16 : -24 }} barCategoryGap={big ? 6 : 3}>
+                <XAxis dataKey="t" tickFormatter={fmt} tick={tick} stroke="#2C333A" minTickGap={24} />
                 <YAxis allowDecimals={false} tick={tick} stroke="#2C333A" />
-                <Tooltip contentStyle={tooltipStyle} labelFormatter={(t) => `${fmtHour(Number(t))}:00`} cursor={{ fill: "#ffffff0a" }} />
+                <Tooltip contentStyle={tooltipStyle} labelFormatter={(t) => fmt(Number(t))} cursor={{ fill: "#ffffff0a" }} />
                 {SEVERITIES.map((s) => (
                   <Bar key={s} dataKey={s} name={SEVERITY_LABEL[s]} stackId="a" fill={toneHex(s)} stroke={SURFACE} strokeWidth={1} isAnimationActive={false} />
                 ))}

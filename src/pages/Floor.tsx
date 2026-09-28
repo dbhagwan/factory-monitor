@@ -27,6 +27,7 @@ import { useConnectivity } from "../hooks/useConnectivity";
 import { useFloor } from "../hooks/useFloor";
 import { CHANNELS, type Channel } from "../lib/channels";
 import { HEALTH_LABEL, HEALTH_TONE, SEVERITY_LABEL, toneHex, type Severity } from "../lib/health";
+import type { Range } from "../lib/kpis";
 import type { NormalizedAlert } from "../lib/normalize";
 import { setOperator, useOperator } from "../lib/telemetryStore";
 
@@ -59,6 +60,7 @@ export function Floor() {
     }
   });
   const [insightsExpanded, setInsightsExpanded] = useState(false);
+  const [insightsRange, setInsightsRange] = useState<Range>("day");
   useEffect(() => {
     if (!insightsExpanded) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setInsightsExpanded(false);
@@ -192,6 +194,8 @@ export function Floor() {
               compareZones={!zoneId}
               expanded
               onToggleExpand={() => setInsightsExpanded(false)}
+              range={insightsRange}
+              onRangeChange={setInsightsRange}
             />
           </Box>
         ) : (
@@ -261,6 +265,8 @@ export function Floor() {
                     scopeLabel={zone ? zone.zone.name : "all zones"}
                     compareZones={!zoneId}
                     onToggleExpand={() => setInsightsExpanded(true)}
+                    range={insightsRange}
+                    onRangeChange={setInsightsRange}
                   />
                 </Box>
               </motion.div>

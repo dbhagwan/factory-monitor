@@ -12,7 +12,7 @@ Run it with `npm install` then `npm run dev` and open http://localhost:5173. The
 | Active problems | Problems rail (right) | Sorted open → severity → newest. Severity and zone filters. Hovering a row highlights its machine on the plan or in the zone scene. Acknowledge is a two-step "take ownership", never a clear. |
 | Zone health | Plan outlines and counters | Health derived on the client (see decisions). Counter = open problems, coloured by the worst one. |
 | Real-time | Everywhere | One WebSocket subscriber merges telemetry into the plan's readouts and the charts, and streams new alerts into the rail. |
-| KPIs | Insights band (toggle in the stage header, expand to full screen, Esc to return) | Failures per hour, mean time to acknowledge, machines running; alerts per hour stacked by severity, share by subsystem, open vs in-progress by zone, machines with most alerts. Scoped to the zone you are in. Categorical colours validated for colour-vision deficiency; severity uses the status ramp with legends. |
+| KPIs | Insights band (toggle in the stage header, expand to full screen, Esc to return, range: day / week / month / quarter / year / all time) | Failures per hour, mean time to acknowledge, machines running; alerts per hour stacked by severity, share by subsystem, open vs in-progress by zone, machines with most alerts. Scoped to the zone you are in. Categorical colours validated for colour-vision deficiency; severity uses the status ramp with legends. |
 | Topology | Plan → zone → machine | Authored floor plan with irregular bays, aisles, offices, storage, dock. Zoom into a zone for an isometric scene of modelled machines; click a subsystem chip for a live chart, the alerts on it and a runbook link. |
 
 ## Decisions worth asking about
