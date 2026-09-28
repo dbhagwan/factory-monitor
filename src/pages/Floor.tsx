@@ -143,15 +143,31 @@ export function Floor() {
         {!isLoading && (
           <HStack spacing={{ base: 4, md: 7 }} fontSize="sm" color="text.muted">
             <Text><Text as="span" color="ink" fontWeight={500}>{running}</Text> of {machines.length} running</Text>
-            <Text>
-              <Text as="span" color="ink" fontWeight={500}>{open.length}</Text> open
+            <HStack spacing={0}>
+              <Text
+                as="button"
+                onClick={() => setFilters((f) => ({ ...f, severity: "all", zone: "all" }))}
+                _hover={{ color: "ink" }}
+                title="Show every alert in the rail"
+              >
+                <Text as="span" color="ink" fontWeight={500}>{open.length}</Text> open
+              </Text>
               {SEVERITIES.map((s) => {
                 const n = open.filter((a) => a.severity === s).length;
                 return n ? (
-                  <Text key={s} as="span" color={toneHex(s)}> · {n} {SEVERITY_LABEL[s].toLowerCase()}</Text>
+                  <Text
+                    key={s}
+                    as="button"
+                    color={toneHex(s)}
+                    onClick={() => setFilters((f) => ({ ...f, severity: s, zone: "all" }))}
+                    _hover={{ textDecoration: "underline" }}
+                    title={`Show only ${SEVERITY_LABEL[s].toLowerCase()} alerts`}
+                  >
+                    &nbsp;· {n} {SEVERITY_LABEL[s].toLowerCase()}
+                  </Text>
                 ) : null;
               })}
-            </Text>
+            </HStack>
             <Text>
               {attention.length === 0 ? (
                 <Text as="span" color={toneHex("healthy")}>All zones healthy</Text>
@@ -159,8 +175,17 @@ export function Floor() {
                 <>
                   Attention:{" "}
                   {attention.map((z, i) => (
-                    <Text key={z.zone.id} as="span" color={toneHex(HEALTH_TONE[z.health])}>
-                      {i > 0 && ", "}{z.zone.name}
+                    <Text key={z.zone.id} as="span">
+                      {i > 0 && ", "}
+                      <Text
+                        as="button"
+                        color={toneHex(HEALTH_TONE[z.health])}
+                        onClick={() => goToZone(z.zone.id)}
+                        _hover={{ textDecoration: "underline" }}
+                        title={`Open ${z.zone.name}`}
+                      >
+                        {z.zone.name}
+                      </Text>
                     </Text>
                   ))}
                 </>
