@@ -27,6 +27,7 @@ import type { MachineModel } from "../hooks/useFloor";
 import { CHANNELS, CHANNEL_META, type Channel } from "../lib/channels";
 import { MACHINE_TYPE_LABEL, STATUS_LABEL, toneHex, worstSeverity } from "../lib/health";
 import { useTelemetryHistory } from "../lib/telemetryStore";
+import { useMachineHistory } from "../hooks/useMachineHistory";
 import { AlertList } from "./AlertList";
 import { Sparkline } from "./Sparkline";
 
@@ -42,6 +43,7 @@ const fmtTime = (t: number) =>
 
 export function MachineDetail({ model, channel, onChannelChange, onClose }: Props) {
   const samples = useTelemetryHistory(model?.machine.id);
+  const history = useMachineHistory(model?.machine.id);
   const meta = CHANNEL_META[channel];
   const machine = model?.machine;
   const alerts = model ? [...model.state.open, ...model.state.acked] : [];
@@ -112,10 +114,13 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                     <LineChart data={samples} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
                       <XAxis
                         dataKey="t"
+                        type="number"
+                        scale="time"
+                        domain={["dataMin", "dataMax"]}
                         tickFormatter={fmtTime}
                         stroke="#3A424B"
                         tick={{ fill: "#82888F", fontSize: 11 }}
-                        minTickGap={40}
+                        minTickGap={48}
                       />
                       <YAxis
                         stroke="#3A424B"
@@ -136,6 +141,23 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                           label={{ value: "warn", fill: "#82888F", fontSize: 10, position: "insideTopRight" }}
                         />
                       )}
+                      {channelAlerts
+                        .filter((a) => a.timestampValid)
+                        .map((a) => (
+                          <ReferenceLine
+                            key={a.id}
+                            x={Date.parse(a.timestamp)}
+                            stroke={toneHex(a.severity)}
+                            strokeWidth={1.5}
+                            strokeDasharray={a.acknowledged ? "3 3" : undefined}
+                            label={{
+                              value: a.acknowledged ? "in progress" : "alert",
+                              fill: toneHex(a.severity),
+                              fontSize: 10,
+                              position: "insideTopLeft",
+                            }}
+                          />
+                        ))}
                       <Line
                         type="monotone"
                         dataKey={meta.field}
@@ -148,9 +170,11 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
                   </ResponsiveContainer>
                 </Box>
                 <Text fontSize="xs" color="text.muted" mt={2}>
-                  {samples.length === 1
-                    ? "Waiting for the first live reading. Telemetry arrives every few seconds across the floor."
-                    : `${samples.length} readings this session`}
+                  {history.isLoading
+                    ? "Loading the last hour…"
+                    : history.isError
+                    ? "History unavailable; showing live readings only."
+                    : `Last 60 min · ${samples.length} readings · live every 3 s. Vertical lines mark when an alert was raised.`}
                 </Text>
               </Box>
 

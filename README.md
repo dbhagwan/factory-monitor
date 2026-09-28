@@ -25,6 +25,7 @@ Run it with `npm install` then `npm run dev` and open http://localhost:5173. The
 - **Machines are modelled, not iconed.** Third-party isometric icon packs come with licences and fixed perspectives. Each machine type is a small list of boxes and cylinders in `src/lib/machineModels.ts`, rendered by a 40-line projection (`src/lib/iso.ts`) with painter's-order sorting. A CNC mill has an enclosure window and pendant, a press has columns and a ram, a conveyor has legs, rollers and rails.
 - **A normalisation layer absorbs bad data.** `src/lib/normalize.ts` handles the `machine_name` key, zone names that are wrong or are actually the zone id (WebSocket payloads do this), and implausible timestamps (one alert is dated 1969 and shows "time unknown").
 - **Alerts are fetched unfiltered and filtered on the client**, so socket alerts and server alerts merge in one place (`useAlertsFeed`). A 15 s poll reconciles what the socket does not carry. Acknowledging a socket-only alert gets a 404 from the mock; the UI keeps the ownership locally and says so.
+- **The simulation was extended, and says so.** The starter emulator sent one random machine's telemetry every 3 s, so any single chart got a point every ~40 s, and there was no history endpoint. `src/mocks/telemetrySim.ts` now drives both: every machine streams every 3 s as a random walk, and `GET /api/machines/:id/telemetry?minutes=60` returns the last hour at 20 s resolution, shaped so a machine with an alert steps from a healthy baseline to its faulted values around the alert time. Fixture timestamps are rebased to the session (`src/mocks/time.ts`) so "raised 2 min ago" and the chart's time axis agree; the deliberate 1969 record is left alone. Alerts appear on charts as vertical markers.
 - **Design.** Dark carbon surfaces with white type, blue as the only interaction accent, and a semantic ramp (red, amber, gray, green) that never overlaps with it. One typeface. Motion is one reveal per view, the camera zoom, and a slow pulse on critical machines; reduced-motion is respected. The brand mark at `public/brand-mark.svg` is a placeholder to be replaced with the official logo.
 
 ### Known gaps
@@ -32,7 +33,6 @@ Run it with `npm install` then `npm run dev` and open http://localhost:5173. The
 - The painting zone reports 4 machines but only 3 exist; the UI trusts the machine list, not the count.
 - No automated tests. The logic lives in pure functions (`normalize`, `health`, `channels`, `iso`, `floorPlan`) written to be unit-tested first.
 - Ownership is per browser. A real system would store the acknowledging user server-side and broadcast it.
-- Telemetry arrives for one random machine every 3 s, so a single machine's chart fills slowly; the drawer says so.
 
 ### Try it
 

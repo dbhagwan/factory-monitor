@@ -1,5 +1,9 @@
 import type { WebSocketMessage } from "../types";
 import machinesData from "./data/machines.json";
+import { currentAlerts, currentMachines } from "./handlers";
+import { nextLive } from "./telemetrySim";
+
+const TELEMETRY_INTERVAL_MS = 3000;
 
 type MessageHandler = (message: WebSocketMessage) => void;
 
@@ -24,33 +28,25 @@ export class MockWebSocketServer {
     if (this.connected) return;
     this.connected = true;
 
-    // Push a random machine's telemetry every 3 seconds
+    // Push every machine's telemetry each tick. The original emulator sent one
+    // random machine per tick, which left any single chart nearly empty.
     this.telemetryInterval = setInterval(() => {
-      const machine =
-        machinesData[Math.floor(Math.random() * machinesData.length)];
-      const message: WebSocketMessage = {
-        type: "telemetry",
-        payload: {
-          machineId: machine.id,
-          machineName: machine.name,
-          zoneId: machine.zoneId,
-          telemetry: {
-            temperature:
-              machine.telemetry.temperature + (Math.random() - 0.5) * 5,
-            vibration:
-              machine.telemetry.vibration + (Math.random() - 0.5) * 0.5,
-            throughput: Math.max(
-              0,
-              machine.telemetry.throughput + Math.floor((Math.random() - 0.5) * 10)
-            ),
-            powerDraw:
-              machine.telemetry.powerDraw + (Math.random() - 0.5) * 2,
+      const now = Date.now();
+      const alerts = currentAlerts();
+      for (const machine of currentMachines()) {
+        const message: WebSocketMessage = {
+          type: "telemetry",
+          payload: {
+            machineId: machine.id,
+            machineName: machine.name,
+            zoneId: machine.zoneId,
+            telemetry: nextLive(machine, alerts, now),
+            timestamp: new Date(now).toISOString(),
           },
-          timestamp: new Date().toISOString(),
-        },
-      };
-      this.emit(message);
-    }, 3000);
+        };
+        this.emit(message);
+      }
+    }, TELEMETRY_INTERVAL_MS);
 
     // Occasionally push a new alert (every 15 seconds, 30% chance)
     this.alertInterval = setInterval(() => {

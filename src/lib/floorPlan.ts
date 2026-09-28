@@ -185,12 +185,6 @@ export const DOCK_DOORS: Array<{ x: number; w: number }> = [
   { x: 340, w: 70 },
 ];
 
-export const EXITS: Array<{ x: number; y: number; side: "top" | "left" | "right" | "bottom" }> = [
-  { x: 40, y: 220, side: "left" },
-  { x: 1160, y: 560, side: "right" },
-  { x: 700, y: 700, side: "bottom" },
-  { x: 440, y: 40, side: "top" },
-];
 
 export function bounds(polygon: P[]) {
   const xs = polygon.map((p) => p[0]);

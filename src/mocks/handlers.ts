@@ -6,9 +6,24 @@ import alertsEmptyData from "./data/scenarios/alerts-empty.json";
 import eventsData from "./data/events.json";
 import machinesData from "./data/machines.json";
 import zonesData from "./data/zones.json";
+import { rebase, rebaseAll } from "./time";
+import { historyFor } from "./telemetrySim";
+import type { Machine } from "../types";
+
+// Fixtures are a static snapshot; shift their timestamps to this session.
+const machines: Machine[] = (machinesData as Machine[]).map((m) => ({ ...m, lastUpdated: rebase(m.lastUpdated) }));
+const events = rebaseAll(eventsData);
 
 // In-memory state so acknowledge mutations persist during the session
-let alerts: Alert[] = JSON.parse(JSON.stringify(alertsData));
+let alerts: Alert[] = rebaseAll(JSON.parse(JSON.stringify(alertsData)) as Alert[]);
+
+/** Read by the WebSocket emulator so live telemetry matches the alert state. */
+export function currentAlerts(): Alert[] {
+  return alerts;
+}
+export function currentMachines(): Machine[] {
+  return machines;
+}
 
 // Scenario datasets for mid-session swapping
 const scenarios: Record<string, Alert[]> = {
@@ -32,7 +47,7 @@ function setAlertScenario(scenario: string) {
     );
     return;
   }
-  alerts = JSON.parse(JSON.stringify(data));
+  alerts = rebaseAll(JSON.parse(JSON.stringify(data)) as Alert[]);
   console.log(
     `[Mock] Switched to "${scenario}" scenario (${alerts.length} alerts). Refresh the alerts view to see changes.`
   );
@@ -59,7 +74,7 @@ export const handlers = [
   http.get("/api/factory/status", () => {
     return HttpResponse.json({
       connected: factoryConnected,
-      totalMachines: machinesData.length,
+      totalMachines: machines.length,
       zoneCount: zonesData.length,
       uptimeHours: 127.4,
       lastUpdated: new Date().toISOString(),
@@ -74,18 +89,30 @@ export const handlers = [
   // GET /api/zones/:zoneId/machines
   http.get("/api/zones/:zoneId/machines", ({ params }) => {
     const { zoneId } = params;
-    const machines = machinesData.filter((m) => m.zoneId === zoneId);
-    return HttpResponse.json(machines);
+    return HttpResponse.json(machines.filter((m) => m.zoneId === zoneId));
   }),
 
   // GET /api/machines/:machineId
   http.get("/api/machines/:machineId", ({ params }) => {
     const { machineId } = params;
-    const machine = machinesData.find((m) => m.id === machineId);
+    const machine = machines.find((m) => m.id === machineId);
     if (!machine) {
       return new HttpResponse(null, { status: 404 });
     }
     return HttpResponse.json(machine);
+  }),
+
+  // GET /api/machines/:machineId/telemetry?minutes=60 — history at 20 s resolution
+  http.get("/api/machines/:machineId/telemetry", ({ params, request }) => {
+    const { machineId } = params;
+    const machine = machines.find((m) => m.id === machineId);
+    if (!machine) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    const minutes = Number(new URL(request.url).searchParams.get("minutes") ?? 60);
+    const to = Date.now();
+    const from = to - minutes * 60 * 1000;
+    return HttpResponse.json({ machineId, samples: historyFor(machine, alerts, from, to, 20_000) });
   }),
 
   // GET /api/alerts — supports ?severity= and ?zone= query params
@@ -107,7 +134,7 @@ export const handlers = [
 
   // GET /api/events
   http.get("/api/events", () => {
-    return HttpResponse.json(eventsData);
+    return HttpResponse.json(events);
   }),
 
   // POST /api/alerts/:alertId/acknowledge

@@ -8,7 +8,6 @@ import {
   COLUMNS,
   DESKS,
   DOCK_DOORS,
-  EXITS,
   PLAN_H,
   PLAN_W,
   QC_BENCH,
@@ -181,21 +180,6 @@ export function FloorMap({
         ))}
         <text x={56} y={740} fill={MUTED} fontSize={11}>Loading dock</text>
 
-        {/* exits */}
-        {EXITS.map((e, i) => {
-          const horizontal = e.side === "top" || e.side === "bottom";
-          return (
-            <rect
-              key={i}
-              x={horizontal ? e.x - 16 : e.x - 4}
-              y={horizontal ? e.y - 4 : e.y - 16}
-              width={horizontal ? 32 : 8}
-              height={horizontal ? 8 : 32}
-              fill={toneHex("healthy")}
-              opacity={0.8}
-            />
-          );
-        })}
 
         {/* production zones */}
         {zones.map((z, zi) => {

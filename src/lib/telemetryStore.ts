@@ -13,7 +13,7 @@ export interface Sample extends MachineTelemetry {
   t: number;
 }
 
-const MAX_SAMPLES = 60;
+const MAX_SAMPLES = 400;
 const buffers = new Map<string, Sample[]>();
 const EMPTY: Sample[] = [];
 
@@ -31,6 +31,14 @@ export function pushSample(machineId: string, sample: Sample) {
   const prev = buffers.get(machineId) ?? [];
   const next = [...prev, sample].slice(-MAX_SAMPLES);
   buffers.set(machineId, next);
+  notify();
+}
+
+/** Replace the buffer's past with server history, keeping newer live samples. */
+export function seedHistory(machineId: string, history: Sample[]) {
+  const last = history[history.length - 1]?.t ?? -Infinity;
+  const live = (buffers.get(machineId) ?? []).filter((s) => s.t > last);
+  buffers.set(machineId, [...history, ...live].slice(-MAX_SAMPLES));
   notify();
 }
 
