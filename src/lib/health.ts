@@ -44,19 +44,19 @@ export interface MachineState<T extends Alert = Alert> {
 }
 
 /**
- * A machine takes the colour of its worst unacknowledged alert. If every alert
- * on it has been acknowledged it keeps that colour but renders hollow, meaning
- * "someone is on it". With no alerts the colour follows machine status.
+ * A machine takes the colour of its most severe alert, whether or not someone
+ * has taken it: a warning plus an info is amber, a critical in progress plus an
+ * open info is still red. It renders hollow only when every alert on it is in
+ * progress, meaning "someone is on all of it". With no alerts the colour
+ * follows machine status.
  */
 export function machineState<T extends Alert>(machine: Machine, alerts: T[]): MachineState<T> {
   const mine = alerts.filter((a) => a.machineId === machine.id);
   const open = mine.filter((a) => !a.acknowledged);
   const acked = mine.filter((a) => a.acknowledged);
-  const openWorst = worstSeverity(open);
-  if (openWorst) return { tone: openWorst, hollow: false, open, acked };
+  const worst = worstSeverity(mine);
+  if (worst) return { tone: worst, hollow: open.length === 0, open, acked };
   if (machine.status === "error") return { tone: "critical", hollow: false, open, acked };
-  const ackedWorst = worstSeverity(acked);
-  if (ackedWorst) return { tone: ackedWorst, hollow: true, open, acked };
   if (machine.status === "idle") return { tone: "idle", hollow: false, open, acked };
   if (machine.status === "maintenance")
     return { tone: "maintenance", hollow: false, open, acked };
