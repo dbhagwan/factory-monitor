@@ -139,6 +139,67 @@ window.__setAlertScenario("stress")   // 50 alerts; "empty" for none; "default" 
 window.__setFactoryConnected(false)   // drop the link; badges appear within 5 s. true restores it.
 ```
 
+## Where the code lives
+
+Pure logic sits in `src/lib` with no React in it. Hooks in `src/hooks` fetch and merge. Components in `src/components` draw. One page in `src/pages` lays it all out. The mock backend in `src/mocks` came with the starter and was extended where noted.
+
+```
+src
+├── lib                      pure functions, the part to unit test first
+│   ├── normalize.ts         one shape for every alert: name fallbacks, zone from id, plausible timestamp, subsystem
+│   ├── channels.ts          the four subsystems: keyword classifier, units, warn thresholds, runbook links
+│   ├── health.ts            zone health, machine colour and hollow state, sort order, duplicate collapsing
+│   ├── signals.ts           which readings a plan cell shows: alerting subsystems first
+│   ├── floorPlan.ts         the plant as data: bay polygons, machine slots, aisles, rooms, dock
+│   ├── iso.ts               isometric projection, cuboid and cylinder primitives
+│   ├── machineModels.ts     each machine type built from those primitives
+│   ├── kpis.ts              Insights reducers: ranges, buckets, failure rate, mean time to acknowledge
+│   └── telemetryStore.ts    client state outside React Query: telemetry buffers, live alerts, ownership, link status
+├── hooks
+│   ├── useLiveFeed.ts       the single WebSocket subscriber, mounted once at the root
+│   ├── useAlertsFeed.ts     server alerts merged with socket alerts, normalised, filtered
+│   ├── useFloor.ts          zones, machines, alerts and ownership joined into the one view model
+│   ├── useMachines.ts       fans out per zone into a single cache entry that live data patches
+│   ├── useMachineHistory.ts loads an hour or six of chart history
+│   ├── useConnectivity.ts   decides when the no-link badges show
+│   ├── useAcknowledgeAlert.ts   optimistic acknowledge with ownership   (starter, rewritten)
+│   ├── useAlerts.ts             one cache key plus a 15 s poll          (starter, modified)
+│   ├── useFactoryStatus.ts      faster poll for the link state          (starter, modified)
+│   ├── useFactoryWebSocket.ts   stale closure and disconnect fixed      (starter, rewritten)
+│   └── useZones.ts                                                     (starter)
+├── components
+│   ├── FloorMap.tsx         the plan: bays, cells, badges, camera zoom, tooltips, highlight
+│   ├── IsoScene.tsx         the bay: modelled machines, state pads, subsystem chips
+│   ├── MachineDetail.tsx    the drawer: live chart, scrubbing, tiles, alerts, runbook
+│   ├── Insights.tsx         the KPI band and its full-screen mode
+│   ├── AlertList.tsx        the rail's list and empty states
+│   ├── AlertRow.tsx         one alert: two-step ownership, hover and locate
+│   ├── OfflineBadge.tsx     the no-link mark drawn inside SVG
+│   ├── Sparkline.tsx        tiny trend lines for the tiles
+│   ├── SeverityBadge.tsx    the Critical / Warning / Info pill
+│   └── EmptyState.tsx       nothing-here panels
+├── pages
+│   └── Floor.tsx            the one screen: header, stage, rail, drawer, insights, routing state
+├── mocks                    the starter's mock backend
+│   ├── telemetrySim.ts      history generator and live random walk, shared so they agree
+│   ├── time.ts              rebases fixture timestamps to the session
+│   ├── handlers.ts          history endpoint and link toggle added         (starter, modified)
+│   ├── websocket.ts         every machine every 3 s                        (starter, modified)
+│   └── data/                fixtures, untouched                            (starter)
+├── theme.ts                 palette, typeface, forced dark mode
+├── App.tsx                  routes and the root subscriber                  (starter, rewritten)
+├── main.tsx                 mock worker start, dark mode                    (starter, modified)
+└── types.ts                                                                (starter)
+public/brand-mark.svg        placeholder mark, replace with the real logo
+docs/screenshots/            the images in this README
+```
+
+| | Files | What they focus on |
+|---|---|---|
+| Created | 30 | Everything above without a starter note: the data layer, the plan and bay renderers, the drawer, Insights, the one-screen page, the simulation |
+| Modified | 12 | The starter hooks, mock handlers, app shell, fonts and this README |
+| Removed | 4 | The three starter pages and the sample card, all replaced by `Floor.tsx` |
+
 ---
 
 ## Notes for reviewers
