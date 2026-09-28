@@ -222,10 +222,15 @@ export function Floor() {
           </HStack>
         )}
         {offline && (
-          <HStack spacing={2} ml="auto" color={toneHex("critical")} fontSize="sm" flexShrink={0}>
-            <WifiOff size={16} />
-            <Text>{factoryLinkDown ? "No connection to the factory network" : "Telemetry feed has gone quiet"}. Machine states may be stale.</Text>
-          </HStack>
+          <Tooltip
+            hasArrow
+            placement="bottom"
+            label={factoryLinkDown ? "No connection to the factory network. Machine states may be stale." : "Telemetry feed has gone quiet. Machine states may be stale."}
+          >
+            <Box color={toneHex("critical")} ml="auto" display="flex" alignItems="center" aria-label="Connection lost" role="img" tabIndex={0}>
+              <WifiOff size={20} />
+            </Box>
+          </Tooltip>
         )}
         {isError && !offline && (
           <Text color={toneHex("critical")} fontSize="sm">Could not reach the factory API.</Text>
