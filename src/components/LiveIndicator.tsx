@@ -21,9 +21,7 @@ export function LiveIndicator() {
   const age = lastMessageAt ? Math.round((Date.now() - lastMessageAt) / 1000) : null;
   const label = !connected
     ? "Disconnected"
-    : age === null
-    ? "Connecting"
-    : age < 5
+    : age === null || age < 5
     ? "Live"
     : `Live · ${age}s ago`;
 
@@ -47,7 +45,9 @@ export function LiveIndicator() {
           />
         )}
       </Box>
-      <Text>{label}</Text>
+      <Text whiteSpace="nowrap" display={{ base: "none", sm: "block" }}>
+        {label}
+      </Text>
     </HStack>
   );
 }

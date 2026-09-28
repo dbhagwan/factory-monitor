@@ -34,11 +34,17 @@ function NavBar() {
       px={{ base: 4, md: 6 }}
       h="56px"
     >
-      <Flex justify="space-between" align="center" h="full">
-        <HStack spacing={6}>
-          <HStack spacing={2.5}>
+      <Flex justify="space-between" align="center" h="full" gap={3} minW={0}>
+        <HStack spacing={{ base: 3, md: 6 }} minW={0}>
+          <HStack spacing={2.5} flexShrink={0}>
             <Box w="10px" h="10px" bg="brand.400" borderRadius="2px" />
-            <Text fontWeight={600} fontSize="md" letterSpacing="-0.01em">
+            <Text
+              fontWeight={600}
+              fontSize="md"
+              letterSpacing="-0.01em"
+              whiteSpace="nowrap"
+              display={{ base: "none", sm: "block" }}
+            >
               Factory Monitor
             </Text>
           </HStack>

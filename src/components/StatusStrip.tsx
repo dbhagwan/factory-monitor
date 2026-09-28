@@ -13,7 +13,7 @@ interface Props {
 function Stat({ value, label, accent }: { value: React.ReactNode; label: string; accent?: string }) {
   return (
     <Box minW="120px">
-      <Text fontSize="2xl" fontWeight={500} lineHeight={1.1} color={accent}>
+      <Text as="div" fontSize="2xl" fontWeight={500} lineHeight={1.1} color={accent}>
         {value}
       </Text>
       <Text fontSize="sm" color="text.muted" mt={1}>
@@ -78,7 +78,11 @@ export function StatusStrip({ zones, alerts, isLoading }: Props) {
         label="Open problems"
       />
       <Stat
-        value={attention.length === 0 ? "None" : attention.map((z) => z.zone.name).join(", ")}
+        value={
+          <Text as="span" fontSize="xl">
+            {attention.length === 0 ? "None" : attention.map((z) => z.zone.name).join(", ")}
+          </Text>
+        }
         label={attention.length === 1 ? "Zone needs attention" : "Zones need attention"}
         accent={attention.length ? toneHex(attention.some((z) => z.health === "faulted") ? "critical" : "warning") : undefined}
       />

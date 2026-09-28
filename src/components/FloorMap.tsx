@@ -21,9 +21,11 @@ const H = 600;
 const PAD = 16;
 const ZONE_W = (W - PAD * 3) / 2;
 const ZONE_H = (H - PAD * 3) / 2;
-const CELL_W = 118;
-const CELL_H = 74;
-const CELL_GAP = 14;
+const CELL_GAP = 12;
+const CELL_TOP = 66;
+const PER_ROW = 2;
+const CELL_W = (ZONE_W - 36 - CELL_GAP * (PER_ROW - 1)) / PER_ROW;
+const CELL_H = (ZONE_H - CELL_TOP - 16 - CELL_GAP) / 2;
 
 const INK = "#F4F6F7";
 const MUTED = "#82888F";
@@ -60,7 +62,6 @@ export function FloorMap({ zones, isLoading }: Props) {
           const x = PAD + col * (ZONE_W + PAD);
           const y = PAD + row * (ZONE_H + PAD);
           const healthHex = toneHex(HEALTH_TONE[z.health]);
-          const perRow = Math.max(1, Math.floor((ZONE_W - 32) / (CELL_W + CELL_GAP)));
 
           return (
             <motion.g
@@ -122,8 +123,9 @@ export function FloorMap({ zones, isLoading }: Props) {
               </g>
 
               {z.machines.map((m, mi) => {
-                const cx = x + 18 + (mi % perRow) * (CELL_W + CELL_GAP);
-                const cy = y + 68 + Math.floor(mi / perRow) * (CELL_H + CELL_GAP);
+                const cx = x + 18 + (mi % PER_ROW) * (CELL_W + CELL_GAP);
+                const cy = y + CELL_TOP + Math.floor(mi / PER_ROW) * (CELL_H + CELL_GAP);
+                const t = m.machine.telemetry;
                 const hex = toneHex(m.state.tone);
                 const isIdle = m.state.tone === "idle" || m.state.tone === "maintenance";
                 const pulse = m.state.tone === "critical" && !m.state.hollow && !reduce;
@@ -166,19 +168,37 @@ export function FloorMap({ zones, isLoading }: Props) {
                         transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
                       />
                     )}
-                    <rect x={cx + 10} y={cy + 12} width={8} height={8} rx={2} fill={hex} />
-                    <text x={cx + 24} y={cy + 20} fill={INK} fontSize={12} fontWeight={500}>
-                      {truncate(m.machine.name, 15)}
+                    <rect x={cx + 12} y={cy + 14} width={8} height={8} rx={2} fill={hex} />
+                    <text x={cx + 26} y={cy + 22} fill={INK} fontSize={13} fontWeight={500}>
+                      {truncate(m.machine.name, 22)}
                     </text>
-                    <text x={cx + 10} y={cy + 40} fill={MUTED} fontSize={11}>
+                    <text x={cx + 12} y={cy + 42} fill={MUTED} fontSize={11}>
                       {MACHINE_TYPE_LABEL[m.machine.type]}
                     </text>
-                    <text x={cx + 10} y={cy + 58} fill={hex} fontSize={11}>
+                    <text x={cx + 12} y={cy + CELL_H - 12} fill={hex} fontSize={11}>
                       {m.state.open.length > 0
                         ? `${m.state.open.length} open`
                         : m.state.hollow
                         ? "Acknowledged"
                         : STATUS_LABEL[m.machine.status]}
+                    </text>
+                    <text
+                      x={cx + CELL_W - 12}
+                      y={cy + 42}
+                      fill={MUTED}
+                      fontSize={11}
+                      textAnchor="end"
+                    >
+                      {t.temperature.toFixed(0)}°C
+                    </text>
+                    <text
+                      x={cx + CELL_W - 12}
+                      y={cy + CELL_H - 12}
+                      fill={MUTED}
+                      fontSize={11}
+                      textAnchor="end"
+                    >
+                      {t.throughput} u/h · {t.powerDraw.toFixed(1)} kW
                     </text>
                   </motion.g>
                 );

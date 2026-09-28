@@ -65,5 +65,11 @@ export function relativeTime(ts: string, valid: boolean, now = Date.now()): stri
   if (h < 24) return `${h} h ago`;
   const d = Math.floor(h / 24);
   if (d < 30) return `${d} d ago`;
-  return new Date(ts).toLocaleDateString();
+  return new Date(ts).toLocaleString([], {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
