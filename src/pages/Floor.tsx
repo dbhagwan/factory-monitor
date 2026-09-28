@@ -15,7 +15,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, BarChart3, RefreshCw, UserRound, WifiOff } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertList } from "../components/AlertList";
 import { FloorMap } from "../components/FloorMap";
 import { Insights } from "../components/Insights";
@@ -113,6 +113,17 @@ export function Floor() {
     setPendingZone(null);
   };
   const backToFloor = () => navigate("/", { state: { from: zoneId } });
+  /** The wordmark always lands on the plant overview: insights closed, nothing selected. */
+  const goHome = () => {
+    setInsightsExpanded(false);
+    setShowInsights(false);
+    try {
+      localStorage.setItem("fm.insights", "0");
+    } catch {
+      /* storage unavailable */
+    }
+    navigate("/", { state: { from: zoneId ?? null } });
+  };
   const locate = (a: NormalizedAlert) => goToZone(a.zoneId, a.machineId, a.channel);
   const selectMachine = (id: string, c?: Channel) => {
     const next = new URLSearchParams();
@@ -125,7 +136,7 @@ export function Floor() {
     <Flex direction="column" h={{ base: "auto", lg: "100vh" }} minH="100vh" bg="carbon.950" overflow={{ lg: "hidden" }}>
       {/* header: one line of facts, no chrome */}
       <Flex as="header" px={{ base: 4, md: 6 }} h="56px" align="center" gap={{ base: 4, md: 8 }} borderBottom="1px solid" borderColor="carbon.700" flexShrink={0} overflowX="auto" whiteSpace="nowrap">
-        <HStack as={RouterLink} to="/" spacing={2.5} flexShrink={0} _hover={{ opacity: 0.85 }} title="Back to the plant overview">
+        <HStack as="button" onClick={goHome} spacing={2.5} flexShrink={0} _hover={{ opacity: 0.85 }} title="Back to the plant overview" aria-label="Factory OS, back to the plant overview">
           <Image src="/brand-mark.svg" alt="" w="22px" h="22px" />
           <Text fontWeight={600} letterSpacing="-0.01em">Factory OS</Text>
         </HStack>
