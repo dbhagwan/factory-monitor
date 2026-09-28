@@ -26,7 +26,7 @@ export function AlertList({ alerts, isLoading, compact, onLocate, onHover, empty
   if (alerts.length === 0) {
     return (
       <EmptyState
-        title={emptyTitle ?? "No open problems"}
+        title={emptyTitle ?? "No open alerts"}
         body={emptyBody ?? "Every machine is reporting within normal limits."}
       />
     );

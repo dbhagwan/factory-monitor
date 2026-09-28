@@ -197,12 +197,12 @@ export function MachineDetail({ model, channel, onChannelChange, onClose }: Prop
               </Grid>
 
               <Heading size="sm" mb={2}>
-                {meta.label} problems
+                {meta.label} alerts
               </Heading>
               <AlertList
                 alerts={channelAlerts}
                 compact
-                emptyTitle={`No problems on ${meta.label.toLowerCase()}`}
+                emptyTitle={`No alerts on ${meta.label.toLowerCase()}`}
                 emptyBody="Readings on this subsystem are within limits."
               />
 

@@ -2,7 +2,6 @@ import {
   Box,
   Button,
   ButtonGroup,
-  Checkbox,
   Flex,
   Grid,
   Heading,
@@ -277,10 +276,10 @@ export function Floor() {
         {/* problems rail */}
         <Flex direction="column" minH={0} bg="carbon.900" borderRadius="lg" p={4}>
           <Flex justify="space-between" align="baseline" mb={3} flexShrink={0}>
-            <Heading size="md">Problems</Heading>
+            <Heading size="md">Alerts</Heading>
             <HStack spacing={2}>
               <Text fontSize="sm" color="text.muted">{visible.filter((a) => !a.acknowledged).length} open</Text>
-              <IconButton aria-label="Refresh problems" icon={<RefreshCw size={14} />} size="xs" variant="ghost" colorScheme="gray" isLoading={isFetching} onClick={() => refetch()} />
+              <IconButton aria-label="Refresh alerts" icon={<RefreshCw size={14} />} size="xs" variant="ghost" colorScheme="gray" isLoading={isFetching} onClick={() => refetch()} />
             </HStack>
           </Flex>
           <Flex gap={2} mb={3} wrap="wrap" align="center" flexShrink={0}>
@@ -297,9 +296,6 @@ export function Floor() {
                 <option key={z.zone.id} value={z.zone.id}>{z.zone.name}</option>
               ))}
             </Select>
-            <Checkbox size="sm" colorScheme="brand" isChecked={filters.includeAcknowledged} onChange={(e) => setFilters((f) => ({ ...f, includeAcknowledged: e.target.checked }))}>
-              <Text fontSize="xs">In progress</Text>
-            </Checkbox>
           </Flex>
           <Box flex={1} minH={0} overflowY="auto" pr={1} sx={{ scrollbarWidth: "thin" }}>
             <AlertList
@@ -310,9 +306,9 @@ export function Floor() {
               onHover={setHoveredAlert}
               emptyTitle={
                 filters.severity !== "all"
-                  ? "No problems match"
+                  ? "No alerts match"
                   : railZone !== "all"
-                  ? `No problems in ${zones.find((z) => z.zone.id === railZone)?.zone.name ?? "this zone"}`
+                  ? `No alerts in ${zones.find((z) => z.zone.id === railZone)?.zone.name ?? "this zone"}`
                   : undefined
               }
               emptyBody={

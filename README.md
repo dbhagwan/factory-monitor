@@ -9,7 +9,7 @@ Run it with `npm install` then `npm run dev` and open http://localhost:5173. The
 | Requirement | Where | Notes |
 |---|---|---|
 | Factory overview | Header line + plan | Machines running, open problems by severity, zones needing attention. Nothing invented: no uptime, no "live" pill. |
-| Active problems | Problems rail (right) | Sorted open → severity → newest. Severity and zone filters. Hovering a row highlights its machine on the plan or in the zone scene. Acknowledge is a two-step "take ownership", never a clear. |
+| Active problems | Alerts rail (right) | Sorted open → severity → newest. Severity and zone filters. Hovering a row highlights its machine on the plan or in the zone scene. Acknowledge is a two-step "take ownership", never a clear. |
 | Zone health | Plan outlines and counters | Health derived on the client (see decisions). Counter = open problems, coloured by the worst one. |
 | Real-time | Everywhere | One WebSocket subscriber merges telemetry into the plan's readouts and the charts, and streams new alerts into the rail. |
 | KPIs | Insights band (toggle in the stage header, expand to full screen, Esc to return, range: day / week / month / quarter / year / all time) | Failures per hour, mean time to acknowledge, machines running; alerts per hour stacked by severity, share by subsystem, open vs in-progress by zone, machines with most alerts. Scoped to the zone you are in. Categorical colours validated for colour-vision deficiency; severity uses the status ramp with legends. |
@@ -17,7 +17,7 @@ Run it with `npm install` then `npm run dev` and open http://localhost:5173. The
 
 ## Decisions worth asking about
 
-- **Everything fits one screen.** The plan (or the zone) and the problems rail share the viewport; only the rail's list and the detail drawer scroll. Zooming into a zone is a camera move on the same SVG, then the isometric scene fades in place, so it never feels like a page change. Phones fall back to a scrolling stack.
+- **Everything fits one screen.** The plan (or the zone) and the alerts rail share the viewport; only the rail's list and the detail drawer scroll. Zooming into a zone is a camera move on the same SVG, then the isometric scene fades in place, so it never feels like a page change. Phones fall back to a scrolling stack.
 - **Acknowledge means "I've got it", not "clear".** The brief requires acknowledging; operators fear accidental clears. So it is a two-step confirm, it records who took it (name set once in the header, kept in local storage because the mock endpoint takes no body), and the alert stays visible everywhere as "In progress · name", including on hover over the machine. Alerts only disappear when the backend clears them, which the mock never does.
 - **Zone health is derived, not read from `/api/zones`.** The mock's zone health is static and never reflects streamed alerts. `src/lib/health.ts` computes it from machine status plus open alerts, so the plan reacts live.
 - **Subsystems are the four telemetry channels.** The data has no subsystem concept. Each alert is classified by keyword into thermal, mechanical, output or electrical (`src/lib/channels.ts`), the channel the machine also reports telemetry for. It is a presentation heuristic and is labelled as such; a real alert would carry a subsystem id.
@@ -38,7 +38,7 @@ Run it with `npm install` then `npm run dev` and open http://localhost:5173. The
 
 ### Try it
 
-In the browser console: `window.__setAlertScenario("stress")` (50 alerts) or `"empty"`, then press the refresh icon in the rail. `window.__setFactoryConnected(false)` drops the factory link.
+In the browser console: `window.__setAlertScenario("stress")` (50 alerts) or `"empty"`, then press the refresh icon in the Alerts rail. `window.__setFactoryConnected(false)` drops the factory link.
 
 ---
 
