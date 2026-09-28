@@ -13,5 +13,9 @@ export function useAlerts(filters?: { severity?: string; zone?: string }) {
       if (!response.ok) throw new Error("Failed to fetch alerts");
       return response.json();
     },
+    // The socket pushes new alerts; this poll reconciles state the socket
+    // does not carry (acknowledgements from other operators, cleared alerts).
+    staleTime: 0,
+    refetchInterval: 15000,
   });
 }

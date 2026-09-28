@@ -7,9 +7,11 @@ import {
   Flex,
   Heading,
   HStack,
+  IconButton,
   Select,
   Text,
 } from "@chakra-ui/react";
+import { RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AlertList } from "../components/AlertList";
 import { selectAlerts, useAlertsFeed, type AlertFilters } from "../hooks/useAlertsFeed";
@@ -19,7 +21,7 @@ import { SEVERITY_LABEL, toneHex, type Severity } from "../lib/health";
 const SEVERITIES: Severity[] = ["critical", "warning", "info"];
 
 export function Alerts() {
-  const { alerts, isLoading, isError } = useAlertsFeed();
+  const { alerts, isLoading, isError, isFetching, refetch } = useAlertsFeed();
   const { data: zones } = useZones();
   const [filters, setFilters] = useState<AlertFilters>({
     severity: "all",
@@ -90,9 +92,20 @@ export function Alerts() {
         >
           Show acknowledged
         </Checkbox>
-        <Text fontSize="sm" color="text.muted" ml="auto">
-          {visible.length} shown
-        </Text>
+        <HStack ml="auto" spacing={2}>
+          <Text fontSize="sm" color="text.muted">
+            {visible.length} shown
+          </Text>
+          <IconButton
+            aria-label="Refresh problems"
+            icon={<RefreshCw size={14} />}
+            size="sm"
+            variant="ghost"
+            colorScheme="gray"
+            isLoading={isFetching}
+            onClick={() => refetch()}
+          />
+        </HStack>
       </Flex>
 
       {isError ? (
