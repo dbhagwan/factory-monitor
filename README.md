@@ -1,49 +1,160 @@
-# Factory OS
+<p align="center">
+  <img src="public/brand-mark.svg" width="36" alt="">
+</p>
+<h1 align="center">Factory OS</h1>
+<p align="center">One screen for the factory floor. A live plant plan, a zoom into any bay, the subsystem behind every alert, and the numbers that say where to look next.</p>
 
-One-screen operator console for a factory floor. A plan of the plant with every zone and machine, a camera zoom into any zone that becomes an isometric scene of its equipment, a problems rail with ownership, and live telemetry per subsystem. Built in a 90-minute assessment window on top of the provided starter.
+<p align="center"><img src="docs/screenshots/plan.png" width="100%" alt="Factory OS plant overview"></p>
 
-Run it with `npm install` then `npm run dev` and open http://localhost:5173. The mock API and WebSocket start with the dev server.
+```bash
+npm install
+npm run dev        # http://localhost:5173
+```
 
-## What was built
-
-| Requirement | Where | Notes |
-|---|---|---|
-| Factory overview | Header line + plan | Machines running, open problems by severity, zones needing attention. Nothing invented: no uptime, no "live" pill. |
-| Active problems | Alerts rail (right) | Sorted open → severity → newest. Severity and zone filters. Hovering a row highlights its machine on the plan or in the zone scene. Acknowledge is a two-step "take ownership", never a clear. |
-| Zone health | Plan outlines and counters | Health derived on the client (see decisions). Counter = open problems, coloured by the worst one. |
-| Real-time | Everywhere | One WebSocket subscriber merges telemetry into the plan's readouts and the charts, and streams new alerts into the rail. |
-| KPIs | Insights band (toggle in the stage header, expand to full screen, Esc to return, range: day / week / month / quarter / year / all time) | Failures per hour, mean time to acknowledge, machines running; alerts per hour stacked by severity, share by subsystem, open vs in-progress by zone, machines with most alerts. Scoped to the zone you are in. Categorical colours validated for colour-vision deficiency; severity uses the status ramp with legends. |
-| Topology | Plan → zone → machine | Authored floor plan with irregular bays, aisles, offices, storage, dock. Zoom into a zone for an isometric scene of modelled machines; click a subsystem chip for a live chart, the alerts on it and a runbook link. |
-
-## Decisions worth asking about
-
-- **Everything fits one screen.** The plan (or the zone) and the alerts rail share the viewport; only the rail's list and the detail drawer scroll. Zooming into a zone is a camera move on the same SVG, then the isometric scene fades in place, so it never feels like a page change. Phones fall back to a scrolling stack.
-- **Acknowledge means "I've got it", not "clear".** The brief requires acknowledging; operators fear accidental clears. So it is a two-step confirm, it records who took it (name set once in the header, kept in local storage because the mock endpoint takes no body), and the alert stays visible everywhere as "In progress · name", including on hover over the machine. Alerts only disappear when the backend clears them, which the mock never does.
-- **Zone health is derived, not read from `/api/zones`.** The mock's zone health is static and never reflects streamed alerts. `src/lib/health.ts` computes it from machine status plus open alerts, so the plan reacts live.
-- **Subsystems are the four telemetry channels.** The data has no subsystem concept. Each alert is classified by keyword into thermal, mechanical, output or electrical (`src/lib/channels.ts`), the channel the machine also reports telemetry for. It is a presentation heuristic and is labelled as such; a real alert would carry a subsystem id.
-- **Connectivity is shown, not assumed.** There is no per-machine link state in the API, so when the factory link is down or the feed has gone quiet for 30 s every machine gets a no-link badge and the header shows the same icon (hover it for the reason). Demo it with `window.__setFactoryConnected(false)` in the console.
-- **A machine cell shows the readings that are alerting.** Each plan cell has room for one to three readouts depending on its slot shape. They go to the subsystems with alerts, most severe first and coloured by severity, so the misbehaving number is the one on screen; healthy machines fall back to throughput (`src/lib/signals.ts`).
-- **The floor plan is authored data.** No coordinates come from the API, so `src/lib/floorPlan.ts` holds the bays as polygons with named machine slots, plus aisles, columns, offices, QC bench, racks, dock doors and exits. Swapping in a real plant is a data change, not a code change.
-- **Machines are modelled, not iconed.** Third-party isometric icon packs come with licences and fixed perspectives. Each machine type is a small list of boxes and cylinders in `src/lib/machineModels.ts`, rendered by a 40-line projection (`src/lib/iso.ts`) with painter's-order sorting. A CNC mill has an enclosure window and pendant, a press has columns and a ram, a conveyor has legs, rollers and rails.
-- **A normalisation layer absorbs bad data.** `src/lib/normalize.ts` handles the `machine_name` key, zone names that are wrong or are actually the zone id (WebSocket payloads do this), and implausible timestamps (one alert is dated 1969 and shows "time unknown").
-- **Alerts are fetched unfiltered and filtered on the client**, so socket alerts and server alerts merge in one place (`useAlertsFeed`). A 15 s poll reconciles what the socket does not carry. Acknowledging a socket-only alert gets a 404 from the mock; the UI keeps the ownership locally without interrupting the operator.
-- **The simulation was extended, and says so.** The starter emulator sent one random machine's telemetry every 3 s, so any single chart got a point every ~40 s, and there was no history endpoint. `src/mocks/telemetrySim.ts` now drives both: every machine streams every 3 s as a random walk, and `GET /api/machines/:id/telemetry?minutes=60` returns the last hour at 20 s resolution, shaped so a machine with an alert steps from a healthy baseline to its faulted values around the alert time. Fixture timestamps are rebased to the session (`src/mocks/time.ts`) so "raised 2 min ago" and the chart's time axis agree; the deliberate 1969 record is left alone. Alerts appear on charts as vertical markers. The chart follows live as a rolling 15-minute window. A two-finger sideways swipe or a drag scrubs back through time, pinch zooms, the strip underneath shows the whole loaded range and can be dragged, and reaching the start fetches six hours; a Live button snaps back to the newest data. Gestures are coalesced to one update per frame and the chart draws at most 320 points.
-- **Insights sit under the plan, never instead of it.** The band slides up from the bottom of the stage and the plan scales to fit above it, so the real-time view stays visible. KPIs are pure reducers in `src/lib/kpis.ts` over the same alert feed the rail uses. With six fixture alerts the charts are sparse; the stress scenario or a few minutes of the live feed fills them.
-- **Design.** Dark carbon surfaces with white type, blue as the only interaction accent, and a semantic ramp (red, amber, gray, green) that never overlaps with it. One typeface. Motion is one reveal per view, the camera zoom, and a slow pulse on critical machines; reduced-motion is respected. The brand mark at `public/brand-mark.svg` is a placeholder to be replaced with the official logo.
-
-### Known gaps
-
-- The painting zone reports 4 machines but only 3 exist; the UI trusts the machine list, not the count.
-- No automated tests. The logic lives in pure functions (`normalize`, `health`, `channels`, `iso`, `floorPlan`) written to be unit-tested first.
-- Ownership is per browser. A real system would store the acknowledging user server-side and broadcast it.
-
-### Try it
-
-In the browser console: `window.__setAlertScenario("stress")` (50 alerts) or `"empty"`, then press the refresh icon in the Alerts rail. `window.__setFactoryConnected(false)` drops the factory link.
+The mock API and telemetry feed start with the dev server. Nothing else to configure.
 
 ---
 
-## Starter documentation
+## The floor at a glance
+
+The header is the overview. Every number on it is a control: click a severity count to filter the alerts rail, click a zone under *Attention* to zoom to it, hover the running count for the machines that are not.
+
+<p align="center"><img src="docs/screenshots/header.png" width="100%" alt="Header: 10 of 14 running · 5 active alerts · 2 critical · 2 warning · 1 info · Attention: Welding Bay, Packaging & Shipping"></p>
+
+<table>
+<tr>
+<td width="55%"><img src="docs/screenshots/cells.png" alt="Packaging and Painting bays with machine cells in different states"></td>
+<td>
+
+**Reading a bay**
+
+- **Outline** is the bay's health, derived live from its machines and open alerts.
+- **Badge** counts active alerts in the colour of the worst one. Hover it for the split by severity.
+- **Solid cell** takes the colour of the machine's most severe alert.
+- **Hollow cell** means every alert on it is in progress, someone owns it.
+- **Hatched cell** is idle or in maintenance.
+- **Readouts** are the subsystems that are alerting, most severe first, ticking live. Healthy machines show throughput.
+
+</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/zone-badge.png" alt="Zone badge tooltip showing 3 active alerts: 1 critical, 2 warning, 0 info"></td>
+<td><img src="docs/screenshots/running-tooltip.png" alt="Running count tooltip listing the machines that are not running and why"></td>
+</tr>
+</table>
+
+The plan itself is a plant, not a grid: aisles with forklift lanes, structural columns, offices with a QC bench, raw material racks, a maintenance strip and a loading dock. Bays are irregular polygons with named machine slots.
+
+## Alerts rail
+
+<p align="center"><img src="docs/screenshots/hover-crop.png" width="100%" alt="Hovering an alert row rings its machine and its bay on the plan"></p>
+
+- Sorted open first, then severity, then newest. Filter by severity or bay; the bay filter follows you when you zoom in.
+- **Hover a row** and its machine lights up on the plan or in the bay, with everything else dimmed.
+- **Click the bay name** on a row to zoom straight to that machine's subsystem.
+- **Acknowledge means take ownership**, never clear. It is a two-step confirm, records who took it and when, and the alert stays visible as *In progress · name* in the rail, on the machine and in the hover.
+
+<p align="center"><img src="docs/screenshots/ack-confirm.png" width="520" alt="Acknowledge confirm step: Confirm as Dhruv, Cancel"></p>
+
+## Zoom into a bay
+
+Clicking a bay is a camera move on the plan, then the isometric scene fades in place. Back pulls the camera out.
+
+<p align="center"><img src="docs/screenshots/zone.png" width="100%" alt="Welding Bay isometric view"></p>
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/packaging.png" alt="Packaging & Shipping bay"></td>
+<td width="50%"><img src="docs/screenshots/painting.png" alt="Painting & Coating bay"></td>
+</tr>
+</table>
+
+- **Machines are modelled**, not iconed: a CNC mill with an enclosure window and pendant, a press with four columns and a ram, a conveyor with legs, rollers and rails, a welder with a torch boom and gas bottle, a spray booth with a glazed wall and exhaust stack.
+- **The pad** under each machine carries its state; **the four chips** on its front edge are its subsystems (thermal, mechanical, output, electrical). A lit chip is where the alert is. Click a chip to open it.
+- Hover a machine for its readings and open alerts; duplicate alerts collapse into one line with a count.
+
+## Down to the subsystem
+
+<p align="center"><img src="docs/screenshots/drawer.png" width="100%" alt="Machine drawer for Spot Welder #2 with the live thermal chart"></p>
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/chart.png" alt="Live chart with warn threshold, alert marker and scrub strip"></td>
+<td>
+
+- **Live chart** of the selected subsystem. Dashed line is the warn threshold; vertical lines mark when each alert was raised, dashed once it is in progress.
+- **Scrub** with a two-finger sideways swipe or a drag, pinch to zoom, or drag the strip underneath. Reaching the start loads six hours. *Live* snaps back to the newest data.
+- **Four tiles** show every subsystem's value and sparkline, coloured by its fault. Click one to switch the chart.
+- Every occurrence of an alert on that subsystem, with its clock time, and a runbook link for the subsystem.
+
+</td>
+</tr>
+</table>
+
+<p align="center"><img src="docs/screenshots/tiles.png" width="640" alt="Subsystem tiles: thermal in red, mechanical in amber, output and electrical neutral"></p>
+
+## Insights
+
+The *Insights* button slides a KPI band up under the plan; the plan scales to fit above it so the live view never leaves. Expand it to full screen when you want the numbers alone, Esc to return. Inside a bay, the band scopes to that bay.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/insights.png" alt="Insights band under the plan"></td>
+<td width="50%"><img src="docs/screenshots/insights-full.png" alt="Insights expanded to full screen, week range"></td>
+</tr>
+</table>
+
+- Failures per hour, day, week or month to match the range; mean time to acknowledge; machines running.
+- Alerts over time stacked by severity, re-bucketed per range: day, week, month, quarter, year, all time.
+- Share by subsystem, open versus in progress by bay, and the machines with the most alerts.
+
+## When the link drops
+
+If the factory link goes down or the feed goes quiet for 30 seconds, every machine gets a no-link badge and the same icon appears in the header. Hover it for the reason. Nothing else changes, and nothing pretends.
+
+<p align="center"><img src="docs/screenshots/offline.png" width="100%" alt="Welding Bay with the link dropped: no-link badges over every machine"></p>
+
+## Colours and icons
+
+| Mark | Meaning |
+|---|---|
+| <span style="color:#E5484D">■</span> Red | Critical alert, or a machine in an error state |
+| <span style="color:#F5B301">■</span> Amber | Warning |
+| Gray | Info alert, or an idle / maintenance machine (hatched) |
+| Green | Healthy, running |
+| Blue | Interaction only: selection, highlight, links. Never an alert state |
+| Hollow outline | Every alert on the machine is in progress |
+| <img src="docs/screenshots/offline-header.png" height="28" alt=""> | No-link icon: factory link down or feed quiet. Same badge floats over each machine |
+| Bar-chart icon | Insights band toggle |
+| Person icon | Operator name; alerts you acknowledge are assigned to it |
+| Refresh icon | Re-fetch the alerts list |
+| Expand / collapse icons | Insights full screen and back (Esc also works) |
+
+## Try it
+
+In the browser console:
+
+```js
+window.__setAlertScenario("stress")   // 50 alerts; "empty" for none; "default" to restore. Then press refresh in the rail.
+window.__setFactoryConnected(false)   // drop the link; badges appear within 5 s. true restores it.
+```
+
+---
+
+## Notes for reviewers
+
+- **Zone health is derived on the client** from machine status plus open alerts, because the mock's zone health is static and never reflects the feed.
+- **Subsystems are the four telemetry channels.** The data has no subsystem concept, so each alert is classified by keyword into thermal, mechanical, output or electrical. It is a labelled presentation heuristic.
+- **Ownership lives per browser.** The mock acknowledge endpoint takes no body, so who acknowledged what is kept locally. A real system stores and broadcasts it.
+- **The floor plan and machine models are authored data** (`src/lib/floorPlan.ts`, `src/lib/machineModels.ts`), since the API carries no coordinates. Swapping in a real plant is a data change.
+- **The simulation was extended and says so.** Every machine now streams every 3 s, a history endpoint returns the last hour shaped around the alert time, and fixture timestamps are rebased to the session so relative times and chart axes agree. The deliberate 1969 record is left alone and shows "time unknown".
+- **Starter data issues** (a `machine_name` key, a 1969 timestamp, a wrong zone name, socket alerts carrying the zone id as the name, a wrong machine count, a stale-closure socket hook, no machines hook) are each absorbed in one place: `src/lib/normalize.ts`, `src/hooks/useFactoryWebSocket.ts`, `src/hooks/useMachines.ts`.
+- **Known gaps:** no automated tests yet (the logic is in pure functions written to be tested first); alerts only disappear when the backend clears them, which the mock never does; phones get a scrolling stack rather than a designed layout.
+
+<details>
+<summary><b>Starter documentation</b> (tech stack, hooks, endpoints, data types)</summary>
+
+
 
 A React + TypeScript starter project for a factory floor monitoring UI. The app simulates a factory with multiple **zones**, each containing **machines** that report telemetry data and raise **alerts**.
 
@@ -270,3 +381,5 @@ The WebSocket emulator pushes:
 - Card with header, body, badge
 - Loading skeleton state
 - Props interface with TypeScript
+
+</details>
