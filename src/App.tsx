@@ -1,13 +1,9 @@
-import { ChakraProvider, Box, Flex, HStack, Text } from "@chakra-ui/react";
+import { ChakraProvider } from "@chakra-ui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { theme } from "./theme";
-import { Dashboard } from "./pages/Dashboard";
-import { Alerts } from "./pages/Alerts";
-import { Topology } from "./pages/Topology";
-import { ZoneView } from "./pages/ZoneView";
+import { Floor } from "./pages/Floor";
 import { useLiveFeed } from "./hooks/useLiveFeed";
-import { LiveIndicator } from "./components/LiveIndicator";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,77 +14,14 @@ const queryClient = new QueryClient({
   },
 });
 
-const links = [
-  { to: "/", label: "Floor" },
-  { to: "/alerts", label: "Problems" },
-  { to: "/topology", label: "Topology" },
-];
-
-function NavBar() {
-  return (
-    <Box
-      as="header"
-      bg="carbon.900"
-      borderBottom="1px solid"
-      borderColor="carbon.700"
-      px={{ base: 4, md: 6 }}
-      h="56px"
-    >
-      <Flex justify="space-between" align="center" h="full" gap={3} minW={0}>
-        <HStack spacing={{ base: 3, md: 6 }} minW={0}>
-          <HStack spacing={2.5} flexShrink={0}>
-            <Box w="10px" h="10px" bg="brand.400" borderRadius="2px" />
-            <Text
-              fontWeight={600}
-              fontSize="md"
-              letterSpacing="-0.01em"
-              whiteSpace="nowrap"
-              display={{ base: "none", sm: "block" }}
-            >
-              Factory Monitor
-            </Text>
-          </HStack>
-          <HStack as="nav" spacing={1}>
-            {links.map((l) => (
-              <Box
-                key={l.to}
-                as={NavLink}
-                to={l.to}
-                end={l.to === "/"}
-                px={3}
-                py={1.5}
-                borderRadius="md"
-                fontSize="sm"
-                fontWeight={500}
-                color="text.muted"
-                _hover={{ color: "ink", bg: "carbon.800" }}
-                sx={{ "&.active": { color: "ink", bg: "carbon.800" } }}
-              >
-                {l.label}
-              </Box>
-            ))}
-          </HStack>
-        </HStack>
-        <LiveIndicator />
-      </Flex>
-    </Box>
-  );
-}
-
 function Shell() {
   useLiveFeed();
   return (
-    <Box minH="100vh" bg="carbon.950">
-      <NavBar />
-      <Box as="main">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/topology" element={<Topology />} />
-          <Route path="/zones/:zoneId" element={<ZoneView />} />
-        </Routes>
-      </Box>
-    </Box>
+    <Routes>
+      <Route path="/" element={<Floor />} />
+      <Route path="/zones/:zoneId" element={<Floor />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

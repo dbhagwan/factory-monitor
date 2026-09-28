@@ -1,41 +1,42 @@
-# Factory Floor Monitoring Dashboard
+# Factory OS
 
-Operator dashboard for a factory floor: a top-down map of every zone and machine, an isometric drill-down per zone that shows which subsystem is in trouble, live telemetry charts, and a problems list with acknowledgement. Built in a 90-minute assessment window.
+One-screen operator console for a factory floor. A plan of the plant with every zone and machine, a camera zoom into any zone that becomes an isometric scene of its equipment, a problems rail with ownership, and live telemetry per subsystem. Built in a 90-minute assessment window on top of the provided starter.
 
-Run it with `npm install` then `npm run dev` and open http://localhost:5173.
+Run it with `npm install` then `npm run dev` and open http://localhost:5173. The mock API and WebSocket start with the dev server.
 
 ## What was built
 
 | Requirement | Where | Notes |
 |---|---|---|
-| Factory overview | Floor (`/`) | Status strip: link state, machines running, open problems by severity, zones needing attention. |
-| Active problems | Problems (`/alerts`), rail on Floor | Sorted unacknowledged → severity → newest. Filters by severity and zone. Acknowledge is optimistic. |
-| Zone health | Floor map, zone counters | Health is derived on the client (see decisions). Counter = unacknowledged alerts, coloured by the worst one. |
-| Real-time | Everywhere | One WebSocket subscriber at the app root merges telemetry and alerts into the UI. The dot in the header ripples on every message. |
-| Topology | Floor map, `/topology`, `/zones/:zoneId` | Top-down SVG map; isometric SVG scene per zone with a 2×2 of subsystem tiles on each machine. Click a tile for a live chart, the alerts on that subsystem, and a runbook link. |
+| Factory overview | Header line + plan | Machines running, open problems by severity, zones needing attention. Nothing invented: no uptime, no "live" pill. |
+| Active problems | Problems rail (right) | Sorted open → severity → newest. Severity and zone filters. Acknowledge is a two-step "take ownership", never a clear. |
+| Zone health | Plan outlines and counters | Health derived on the client (see decisions). Counter = open problems, coloured by the worst one. |
+| Real-time | Everywhere | One WebSocket subscriber merges telemetry into the plan's readouts and the charts, and streams new alerts into the rail. |
+| Topology | Plan → zone → machine | Authored floor plan with irregular bays, aisles, offices, storage, dock. Zoom into a zone for an isometric scene of modelled machines; click a subsystem chip for a live chart, the alerts on it and a runbook link. |
 
 ## Decisions worth asking about
 
-- **Zone health is derived, not read from `/api/zones`.** The mock returns a static health per zone that never changes when alerts stream in. `src/lib/health.ts` computes it from machine status plus open alerts, so the map reacts live. A real backend would own this; the function is small enough to move server-side.
-- **Subsystems are the four telemetry channels.** The data model has no subsystem concept. Each alert is classified by keyword into thermal, mechanical, output or electrical (`src/lib/channels.ts`), which is also the channel the machine reports telemetry for. This is a presentation heuristic and is labelled as such in code; a real alert would carry a subsystem id.
-- **A normalisation layer absorbs the bad data.** `src/lib/normalize.ts` handles records that use `machine_name` instead of `machineName`, zone names that are wrong or are actually the zone id (WebSocket payloads do this), and implausible timestamps (one alert is dated 1969 and shows as "time unknown"). Every alert, whichever source, passes through it once.
-- **Alerts are fetched unfiltered and filtered on the client.** One cache entry means live alerts and server alerts are merged in one place (`useAlertsFeed`). Filtering 50 rows in memory is free; it would need revisiting at thousands.
-- **Acknowledging a live alert returns 404.** Alerts that arrive over the socket are not in the mock server's store. The mutation keeps the optimistic acknowledgement and tells the operator it is local, instead of silently reverting or pretending it succeeded.
-- **The WebSocket hook was fixed.** The starter's `useFactoryWebSocket` captured a stale callback and never disconnected. It now holds the callback in a ref and disconnects on unmount, and is mounted once at the root (`useLiveFeed`).
-- **Telemetry history lives outside React Query.** It is an append-only client stream, so it sits in a small `useSyncExternalStore` ring buffer (60 samples per machine), seeded from the REST value so charts are never empty. Telemetry arrives for one random machine every 3 s, so any one chart fills slowly. That is a property of the feed, and the drawer says so.
-- **Acknowledged is a visual state, not a hidden one.** An acknowledged alert keeps its colour but renders hollow, meaning "someone is on it". Counters only count unacknowledged alerts.
-- **No coordinates in the API**, so the floor is a fixed 2×2 of zones and machines are laid out on a grid. Machine footprint and height in the isometric view come from the machine type.
-- **Design.** Dark carbon surfaces with white type, blue as the only interaction accent, and a semantic alert ramp (red, amber, gray, green) that never overlaps with the accent. One typeface. Motion is limited to a single page-load reveal, a pulse on critical machines, and the live dot. Reduced-motion is respected.
+- **Everything fits one screen.** The plan (or the zone) and the problems rail share the viewport; only the rail's list and the detail drawer scroll. Zooming into a zone is a camera move on the same SVG, then the isometric scene fades in place, so it never feels like a page change. Phones fall back to a scrolling stack.
+- **Acknowledge means "I've got it", not "clear".** The brief requires acknowledging; operators fear accidental clears. So it is a two-step confirm, it records who took it (name set once in the header, kept in local storage because the mock endpoint takes no body), and the alert stays visible everywhere as "In progress · name", including on hover over the machine. Alerts only disappear when the backend clears them, which the mock never does.
+- **Zone health is derived, not read from `/api/zones`.** The mock's zone health is static and never reflects streamed alerts. `src/lib/health.ts` computes it from machine status plus open alerts, so the plan reacts live.
+- **Subsystems are the four telemetry channels.** The data has no subsystem concept. Each alert is classified by keyword into thermal, mechanical, output or electrical (`src/lib/channels.ts`), the channel the machine also reports telemetry for. It is a presentation heuristic and is labelled as such; a real alert would carry a subsystem id.
+- **Connectivity is shown, not assumed.** There is no per-machine link state in the API, so when the factory link is down or the feed has gone quiet for 30 s every machine gets a no-link badge and the header says why. Demo it with `window.__setFactoryConnected(false)` in the console.
+- **The floor plan is authored data.** No coordinates come from the API, so `src/lib/floorPlan.ts` holds the bays as polygons with named machine slots, plus aisles, columns, offices, QC bench, racks, dock doors and exits. Swapping in a real plant is a data change, not a code change.
+- **Machines are modelled, not iconed.** Third-party isometric icon packs come with licences and fixed perspectives. Each machine type is a small list of boxes and cylinders in `src/lib/machineModels.ts`, rendered by a 40-line projection (`src/lib/iso.ts`) with painter's-order sorting. A CNC mill has an enclosure window and pendant, a press has columns and a ram, a conveyor has legs, rollers and rails.
+- **A normalisation layer absorbs bad data.** `src/lib/normalize.ts` handles the `machine_name` key, zone names that are wrong or are actually the zone id (WebSocket payloads do this), and implausible timestamps (one alert is dated 1969 and shows "time unknown").
+- **Alerts are fetched unfiltered and filtered on the client**, so socket alerts and server alerts merge in one place (`useAlertsFeed`). A 15 s poll reconciles what the socket does not carry. Acknowledging a socket-only alert gets a 404 from the mock; the UI keeps the ownership locally and says so.
+- **Design.** Dark carbon surfaces with white type, blue as the only interaction accent, and a semantic ramp (red, amber, gray, green) that never overlaps with it. One typeface. Motion is one reveal per view, the camera zoom, and a slow pulse on critical machines; reduced-motion is respected. The brand mark at `public/brand-mark.svg` is a placeholder to be replaced with the official logo.
 
 ### Known gaps
 
 - The painting zone reports 4 machines but only 3 exist; the UI trusts the machine list, not the count.
-- No automated tests. The pieces with logic (`normalize`, `health`, `channels`, `iso`) are pure functions written to be unit-tested first.
-- Alerts that have been cleared server-side would need an `alert_cleared` event to disappear; the mock never sends one.
+- No automated tests. The logic lives in pure functions (`normalize`, `health`, `channels`, `iso`, `floorPlan`) written to be unit-tested first.
+- Ownership is per browser. A real system would store the acknowledging user server-side and broadcast it.
+- Telemetry arrives for one random machine every 3 s, so a single machine's chart fills slowly; the drawer says so.
 
 ### Try it
 
-In the browser console: `window.__setAlertScenario("stress")` (50 alerts), `"empty"`, or `"default"`, then reload the Problems page.
+In the browser console: `window.__setAlertScenario("stress")` (50 alerts) or `"empty"`, then press the refresh icon in the rail. `window.__setFactoryConnected(false)` drops the factory link.
 
 ---
 

@@ -5,7 +5,7 @@ import { useMachines } from "./useMachines";
 import { useZones } from "./useZones";
 import { normalizeAlert, type NormalizedAlert } from "../lib/normalize";
 import { sortAlerts } from "../lib/health";
-import { useLiveAlerts } from "../lib/telemetryStore";
+import { useAssignments, useLiveAlerts } from "../lib/telemetryStore";
 
 export interface AlertFilters {
   severity?: NormalizedAlert["severity"] | "all";
@@ -24,6 +24,7 @@ export function useAlertsFeed() {
   const { data: zones } = useZones();
   const { data: machines } = useMachines();
   const live = useLiveAlerts();
+  const assignments = useAssignments();
 
   const all = useMemo(() => {
     const ctx = {
@@ -35,8 +36,12 @@ export function useAlertsFeed() {
     const fromSocket = live
       .filter((a) => !serverIds.has(a.id))
       .map((a) => normalizeAlert(a, ctx));
-    return sortAlerts([...fromSocket, ...fromServer]);
-  }, [alertsQuery.data, zones, machines, live]);
+    const withOwner = [...fromSocket, ...fromServer].map((a) => {
+      const owner = assignments[a.id];
+      return owner ? { ...a, acknowledgedBy: owner.by, acknowledgedAt: owner.at } : a;
+    });
+    return sortAlerts(withOwner);
+  }, [alertsQuery.data, zones, machines, live, assignments]);
 
   return { ...alertsQuery, alerts: all };
 }

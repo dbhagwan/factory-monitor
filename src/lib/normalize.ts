@@ -5,6 +5,9 @@ export interface NormalizedAlert extends Alert {
   channel: Channel;
   /** False when the source timestamp is missing or implausible. */
   timestampValid: boolean;
+  /** Operator who took ownership, when known. */
+  acknowledgedBy?: string;
+  acknowledgedAt?: number;
 }
 
 export interface LookupContext {
@@ -68,7 +71,6 @@ export function relativeTime(ts: string, valid: boolean, now = Date.now()): stri
   return new Date(ts).toLocaleString([], {
     day: "numeric",
     month: "short",
-    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });

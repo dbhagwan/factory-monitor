@@ -38,17 +38,27 @@ function setAlertScenario(scenario: string) {
   );
 }
 
+// Simulated factory network link, toggled from the console:
+//   window.__setFactoryConnected(false)
+let factoryConnected = true;
+function setFactoryConnected(connected: boolean) {
+  factoryConnected = connected;
+  console.log(`[Mock] Factory link ${connected ? "restored" : "lost"}.`);
+}
+
 // Expose to browser console for the interviewer
 if (typeof window !== "undefined") {
   (window as unknown as Record<string, unknown>).__setAlertScenario =
     setAlertScenario;
+  (window as unknown as Record<string, unknown>).__setFactoryConnected =
+    setFactoryConnected;
 }
 
 export const handlers = [
   // GET /api/factory/status
   http.get("/api/factory/status", () => {
     return HttpResponse.json({
-      connected: true,
+      connected: factoryConnected,
       totalMachines: machinesData.length,
       zoneCount: zonesData.length,
       uptimeHours: 127.4,

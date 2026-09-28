@@ -1,6 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Alert } from "../types";
-import { isLiveAlertId, setLiveAlertAcknowledged } from "../lib/telemetryStore";
+import { assign, isLiveAlertId, setLiveAlertAcknowledged, unassign } from "../lib/telemetryStore";
+
+export interface AcknowledgeInput {
+  alertId: string;
+  operator: string;
+}
 
 export interface AcknowledgeResult {
   success: boolean;
@@ -17,16 +22,21 @@ export interface AcknowledgeResult {
 export function useAcknowledgeAlert() {
   const queryClient = useQueryClient();
 
-  return useMutation<AcknowledgeResult, Error, string, { previous: [unknown, unknown][] }>({
-    mutationFn: async (alertId) => {
-      const response = await fetch(`/api/alerts/${alertId}/acknowledge`, { method: "POST" });
+  return useMutation<AcknowledgeResult, Error, AcknowledgeInput, { previous: [unknown, unknown][] }>({
+    mutationFn: async ({ alertId, operator }) => {
+      const response = await fetch(`/api/alerts/${alertId}/acknowledge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operator }),
+      });
       if (response.status === 404 && isLiveAlertId(alertId)) {
         return { success: true, localOnly: true };
       }
       if (!response.ok) throw new Error("Failed to acknowledge alert");
       return response.json();
     },
-    onMutate: async (alertId) => {
+    onMutate: async ({ alertId, operator }) => {
+      assign(alertId, operator);
       await queryClient.cancelQueries({ queryKey: ["alerts"] });
       const previous = queryClient.getQueriesData<Alert[]>({ queryKey: ["alerts"] });
       queryClient.setQueriesData<Alert[]>({ queryKey: ["alerts"] }, (old) =>
@@ -35,11 +45,12 @@ export function useAcknowledgeAlert() {
       setLiveAlertAcknowledged(alertId, true);
       return { previous };
     },
-    onError: (_err, alertId, context) => {
+    onError: (_err, { alertId }, context) => {
       context?.previous.forEach(([key, data]) =>
         queryClient.setQueryData(key as readonly unknown[], data)
       );
       setLiveAlertAcknowledged(alertId, false);
+      unassign(alertId);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["alerts"] });

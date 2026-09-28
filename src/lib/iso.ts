@@ -87,3 +87,30 @@ export function mix(a: string, b: string, t: number): string {
   };
   return `#${[16, 8, 0].map((s) => ch(s).toString(16).padStart(2, "0")).join("")}`;
 }
+
+// ---- extra primitives for machine models ---------------------------------
+
+const SQ2 = Math.SQRT2;
+
+/** Ellipse for a floor-parallel circle at (x, y, z) with radius r. */
+export function circleAt(x: number, y: number, z: number, r: number) {
+  const c = project(x, y, z);
+  return { cx: c.x, cy: c.y, rx: r * SQ2 * COS * TILE, ry: r * SQ2 * SIN * TILE };
+}
+
+/** A vertical cylinder: bottom ellipse, side rectangle, top ellipse. */
+export function cylinderParts(x: number, y: number, z: number, r: number, h: number) {
+  const bottom = circleAt(x, y, z, r);
+  const top = circleAt(x, y, z + h, r);
+  const side = poly([
+    { x: bottom.cx - bottom.rx, y: bottom.cy },
+    { x: bottom.cx + bottom.rx, y: bottom.cy },
+    { x: top.cx + top.rx, y: top.cy },
+    { x: top.cx - top.rx, y: top.cy },
+  ]);
+  return { bottom, side, top };
+}
+
+export function shade(hex: string, amount: number) {
+  return mix(hex, "#0F1214", amount);
+}

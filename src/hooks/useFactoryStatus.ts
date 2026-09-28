@@ -9,6 +9,6 @@ export function useFactoryStatus() {
       if (!response.ok) throw new Error("Failed to fetch factory status");
       return response.json();
     },
-    refetchInterval: 30000,
+    refetchInterval: 5000,
   });
 }

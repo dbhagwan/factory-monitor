@@ -101,3 +101,57 @@ export function isLiveAlertId(id: string) {
 export function useLiveAlerts(): NormalizedAlert[] {
   return useSyncExternalStore(subscribe, () => liveAlerts);
 }
+
+// ---- ownership: who acknowledged what -------------------------------------
+
+export interface Assignment {
+  by: string;
+  at: number;
+}
+
+const OPERATOR_KEY = "fm.operator";
+const ASSIGN_KEY = "fm.assignments";
+
+function load<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function save(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+let operator: string = load<string>(OPERATOR_KEY, "");
+let assignments: Record<string, Assignment> = load<Record<string, Assignment>>(ASSIGN_KEY, {});
+
+export function setOperator(name: string) {
+  operator = name.trim();
+  save(OPERATOR_KEY, operator);
+  notify();
+}
+export function useOperator(): string {
+  return useSyncExternalStore(subscribe, () => operator);
+}
+
+/** The mock acknowledge endpoint takes no body, so ownership is kept here. */
+export function assign(alertId: string, by: string) {
+  assignments = { ...assignments, [alertId]: { by, at: Date.now() } };
+  save(ASSIGN_KEY, assignments);
+  notify();
+}
+export function unassign(alertId: string) {
+  const { [alertId]: _dropped, ...rest } = assignments;
+  assignments = rest;
+  save(ASSIGN_KEY, assignments);
+  notify();
+}
+export function useAssignments(): Record<string, Assignment> {
+  return useSyncExternalStore(subscribe, () => assignments);
+}
