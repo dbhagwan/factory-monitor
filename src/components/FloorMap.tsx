@@ -105,8 +105,8 @@ export function FloorMap({
   if (isLoading) return <Skeleton w="full" pt="63%" borderRadius="lg" />;
 
   return (
-    <Box position="relative" w="full">
-      <svg ref={svgRef} viewBox={initialView} width="100%" style={{ display: "block" }}>
+    <Box position="relative" w="full" h="full">
+      <svg ref={svgRef} viewBox={initialView} width="100%" height="100%" preserveAspectRatio="xMidYMin meet" style={{ display: "block" }}>
         <defs>
           <pattern id="concrete" width="40" height="40" patternUnits="userSpaceOnUse">
             <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1A1F24" strokeWidth="1" />

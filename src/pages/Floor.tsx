@@ -14,11 +14,12 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, RefreshCw, UserRound, WifiOff } from "lucide-react";
+import { ArrowLeft, BarChart3, RefreshCw, UserRound, WifiOff } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertList } from "../components/AlertList";
 import { FloorMap } from "../components/FloorMap";
+import { Insights } from "../components/Insights";
 import { IsoScene } from "../components/IsoScene";
 import { MachineDetail } from "../components/MachineDetail";
 import { selectAlerts, useAlertsFeed, type AlertFilters } from "../hooks/useAlertsFeed";
@@ -49,6 +50,23 @@ export function Floor() {
 
   const [pendingZone, setPendingZone] = useState<{ zoneId: string; machine?: string; channel?: Channel } | null>(null);
   const [filters, setFilters] = useState<AlertFilters>({ severity: "all", zone: "all", includeAcknowledged: true });
+  const [showInsights, setShowInsights] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("fm.insights") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleInsights = () => {
+    setShowInsights((v) => {
+      try {
+        localStorage.setItem("fm.insights", v ? "0" : "1");
+      } catch {
+        /* storage unavailable */
+      }
+      return !v;
+    });
+  };
   const returnFrom = (location.state as { from?: string } | null)?.from ?? null;
 
   const zone = zones.find((z) => z.zone.id === zoneId);
@@ -98,7 +116,7 @@ export function Floor() {
     <Flex direction="column" h={{ base: "auto", lg: "100vh" }} minH="100vh" bg="carbon.950" overflow={{ lg: "hidden" }}>
       {/* header: one line of facts, no chrome */}
       <Flex as="header" px={{ base: 4, md: 6 }} h="56px" align="center" gap={{ base: 4, md: 8 }} borderBottom="1px solid" borderColor="carbon.700" flexShrink={0} overflowX="auto" whiteSpace="nowrap">
-        <HStack spacing={2.5} flexShrink={0}>
+        <HStack as={RouterLink} to="/" spacing={2.5} flexShrink={0} _hover={{ opacity: 0.85 }} title="Back to the plant overview">
           <Image src="/brand-mark.svg" alt="" w="22px" h="22px" />
           <Text fontWeight={600} letterSpacing="-0.01em">Factory OS</Text>
         </HStack>
@@ -173,11 +191,14 @@ export function Floor() {
                 <Text fontSize="sm" color="text.muted">{zone.machines.length} machines · {zone.openAlerts.length} open</Text>
               </HStack>
             ) : (
-              <>
+              <HStack spacing={3}>
                 <Heading size="md">Plant overview</Heading>
                 <Text fontSize="sm" color="text.muted" display={{ base: "none", md: "block" }}>Select a zone to inspect its machines</Text>
-              </>
+              </HStack>
             )}
+            <Button size="sm" variant={showInsights ? "solid" : "ghost"} colorScheme="gray" bg={showInsights ? "carbon.700" : undefined} leftIcon={<BarChart3 size={14} />} onClick={toggleInsights} flexShrink={0}>
+              Insights
+            </Button>
           </Flex>
           <Box position="relative" flex={1} minH={{ base: "420px", lg: 0 }} overflow="hidden">
             <AnimatePresence mode="wait" initial={false}>
@@ -201,6 +222,27 @@ export function Floor() {
               )}
             </AnimatePresence>
           </Box>
+          <AnimatePresence initial={false}>
+            {showInsights && (
+              <motion.div
+                key="insights"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 248, opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                style={{ overflow: "hidden", flexShrink: 0, marginTop: 12 }}
+              >
+                <Box h="248px">
+                  <Insights
+                    alerts={zoneId ? alerts.filter((a) => a.zoneId === zoneId) : alerts}
+                    zones={zoneId ? zones.filter((z) => z.zone.id === zoneId) : zones}
+                    scopeLabel={zone ? zone.zone.name : "all zones"}
+                    compareZones={!zoneId}
+                  />
+                </Box>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Flex>
 
         {/* problems rail */}
